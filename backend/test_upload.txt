@@ -1,0 +1,18 @@
+This is a test document for upload testing.
+
+Insurance Policy Test Document
+==============================
+
+Policy Number: TEST-001
+Policy Type: Health Insurance
+Carrier: Test Insurance Company
+
+Coverage Details:
+- Medical: $1,000,000
+- Dental: $50,000
+- Vision: $10,000
+
+Deductible: $2,500
+Premium: $450/month
+
+This is a simple test document to verify the upload functionality is working correctly.

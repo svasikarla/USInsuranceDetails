@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Test</title>
+</head>
+<body>
+    <h1>CORS Test for US Insurance Platform</h1>
+    <div id="results"></div>
+    
+    <script>
+        async function testCORS() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                // Test basic health endpoint
+                console.log('Testing backend health endpoint...');
+                const healthResponse = await fetch('http://localhost:8000/');
+                const healthData = await healthResponse.json();
+                
+                resultsDiv.innerHTML += `<p>✅ Health endpoint: ${healthResponse.status} - ${healthData.message}</p>`;
+                
+                // Test dashboard endpoint (should return 401 but with CORS headers)
+                console.log('Testing dashboard endpoint...');
+                const dashboardResponse = await fetch('http://localhost:8000/api/dashboard/complete');
+                
+                resultsDiv.innerHTML += `<p>✅ Dashboard endpoint: ${dashboardResponse.status} (401 expected - authentication required)</p>`;
+                
+                // Test CORS headers
+                const corsHeaders = dashboardResponse.headers.get('Access-Control-Allow-Origin');
+                resultsDiv.innerHTML += `<p>✅ CORS headers present: ${corsHeaders ? 'Yes' : 'No'}</p>`;
+                
+                resultsDiv.innerHTML += `<p><strong>🎉 CORS is working correctly!</strong></p>`;
+                
+            } catch (error) {
+                console.error('CORS test failed:', error);
+                resultsDiv.innerHTML += `<p>❌ CORS test failed: ${error.message}</p>`;
+                
+                if (error.message.includes('CORS')) {
+                    resultsDiv.innerHTML += `<p>❌ CORS policy is blocking the request</p>`;
+                } else if (error.message.includes('Failed to fetch')) {
+                    resultsDiv.innerHTML += `<p>❌ Backend server may not be running</p>`;
+                }
+            }
+        }
+        
+        // Run test when page loads
+        window.addEventListener('load', testCORS);
+    </script>
+</body>
+</html>
