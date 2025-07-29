@@ -94,6 +94,8 @@ jspm_packages/
 # Next.js
 .next/
 out/
+frontend/.next/
+frontend/out/
 
 # Nuxt.js
 .nuxt
@@ -117,3 +119,39 @@ temp/
 
 # Uploads
 uploads/
+backend/uploads/*/
+
+# Test files and temporary files
+test_*.py
+test_*.js
+test_*.html
+*_test.py
+*_test.js
+debug_*.py
+temp_*.py
+temp_*.js
+
+# Development and debug files
+comprehensive_test.py
+simple_*.py
+check_*.py
+verify_*.py
+create_*.py
+reprocess_*.py
+revised_*.py
+
+# Performance and report files
+*_performance_*.py
+*_performance_*.js
+*_performance_*.json
+*_report_*.py
+*_report_*.js
+*_report_*.json
+*_report_*.md
+
+# Development documentation
+developmentplan.md
+*_SUMMARY.md
+*_TEST_REPORT.md
+*_ENHANCEMENTS.md
+RESOLVED_ISSUES.md
