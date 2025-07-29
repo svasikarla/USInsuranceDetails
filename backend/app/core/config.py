@@ -13,8 +13,26 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your_super_secret_key"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     
-    # CORS
-    CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001", "http://localhost:8000"]
+    # CORS - Allow frontend domains
+    CORS_ORIGINS: list = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:8000",
+        "https://*.vercel.app",  # Vercel deployments
+        "https://*.netlify.app", # Netlify deployments
+    ]
+
+    # Environment-based CORS (for production)
+    FRONTEND_URL: Optional[str] = None
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v, values):
+        # Add frontend URL from environment if provided
+        frontend_url = os.getenv("FRONTEND_URL")
+        if frontend_url and frontend_url not in v:
+            v.append(frontend_url)
+        return v
     
     # Supabase
     SUPABASE_URL: str = "your_supabase_url"
