@@ -37,7 +37,7 @@ class DashboardCategorizationService:
         # Identify coverage gaps
         coverage_gaps = self._identify_coverage_gaps(db, user_id)
         
-        total_categorized = benefits_summary.total + red_flags_summary.total
+        total_categorized = benefits_summary.total + red_flags_summary["total"]
         
         return CategorizationSummary(
             total_categorized_items=total_categorized,

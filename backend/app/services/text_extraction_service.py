@@ -8,6 +8,7 @@ for multiple formats, OCR fallback, and text preprocessing for AI analysis.
 import logging
 import os
 import tempfile
+import time
 from typing import Optional, Tuple, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
@@ -61,7 +62,7 @@ class ExtractionResult:
     character_count: int
     processing_time: float
     error_message: Optional[str] = None
-    metadata: Dict[str, Any] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 class EnhancedTextExtractionService:
     """

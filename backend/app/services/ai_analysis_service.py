@@ -371,7 +371,7 @@ Return only valid JSON without any additional text or formatting.
                     title=red_flag_result.title,
                     description=red_flag_result.description,
                     source_text=red_flag_result.source_text,
-                    page_number=red_flag_result.page_number,
+                    page_number=red_flag_result.page_number or "1",
                     recommendation=red_flag_result.recommendation,
                     confidence_score=red_flag_result.confidence_score,
                     detected_by="ai"
@@ -385,13 +385,13 @@ Return only valid JSON without any additional text or formatting.
                     policy_id=policy.id,
                     category=benefit_result.category,
                     name=benefit_result.name,
-                    coverage_percentage=benefit_result.coverage_percentage,
-                    copay_amount=benefit_result.copay_amount,
-                    coinsurance_percentage=benefit_result.coinsurance_percentage,
+                    coverage_percentage=benefit_result.coverage_percentage or 0.0,
+                    copay_amount=benefit_result.copay_amount or 0.0,
+                    coinsurance_percentage=benefit_result.coinsurance_percentage or 0.0,
                     requires_preauth=benefit_result.requires_preauth,
-                    network_restriction=benefit_result.network_restriction,
-                    annual_limit=benefit_result.annual_limit,
-                    visit_limit=benefit_result.visit_limit,
+                    network_restriction=benefit_result.network_restriction or "unknown",
+                    annual_limit=benefit_result.annual_limit or 0.0,
+                    visit_limit=benefit_result.visit_limit or 0,
                     notes=benefit_result.notes
                 )
                 created_benefits.append(benefit)

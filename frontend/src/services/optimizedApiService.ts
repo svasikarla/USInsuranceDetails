@@ -162,7 +162,7 @@ class OptimizedApiService {
   async getDashboardComplete(forceRefresh = false): Promise<CompleteDashboardData> {
     return this.fetchWithCache(
       'dashboard-complete',
-      () => apiClient.get('/api/dashboard/complete').then(r => r.data),
+      () => apiClient.get('/api/dashboard/complete').then((r: any) => r.data),
       5 * 60 * 1000, // 5 minutes TTL
       forceRefresh
     );
@@ -171,7 +171,7 @@ class OptimizedApiService {
   async getDashboardSummary(forceRefresh = false): Promise<DashboardStats> {
     return this.fetchWithCache(
       'dashboard-summary',
-      () => apiClient.get('/api/dashboard/summary').then(r => r.data),
+      () => apiClient.get('/api/dashboard/summary').then((r: any) => r.data),
       5 * 60 * 1000, // 5 minutes TTL
       forceRefresh
     );
@@ -184,7 +184,7 @@ class OptimizedApiService {
   async getPolicyComplete(policyId: string, forceRefresh = false): Promise<CompletePolicyData> {
     return this.fetchWithCache(
       `policy-complete-${policyId}`,
-      () => apiClient.get(`/api/policies/${policyId}/complete`).then(r => r.data),
+      () => apiClient.get(`/api/policies/${policyId}/complete`).then((r: any) => r.data),
       10 * 60 * 1000, // 10 minutes TTL
       forceRefresh
     );
@@ -193,7 +193,7 @@ class OptimizedApiService {
   async getPolicy(policyId: string, forceRefresh = false): Promise<InsurancePolicy> {
     return this.fetchWithCache(
       `policy-${policyId}`,
-      () => apiClient.get(`/api/policies/${policyId}`).then(r => r.data),
+      () => apiClient.get(`/api/policies/${policyId}`).then((r: any) => r.data),
       10 * 60 * 1000, // 10 minutes TTL
       forceRefresh
     );
@@ -202,16 +202,7 @@ class OptimizedApiService {
   async getPoliciesByUser(userId: string, forceRefresh = false): Promise<InsurancePolicy[]> {
     return this.fetchWithCache(
       `policies-user-${userId}`,
-      () => apiClient.get(`/api/policies?user_id=${userId}`).then(r => r.data),
-      5 * 60 * 1000, // 5 minutes TTL
-      forceRefresh
-    );
-  }
-
-  async getPoliciesByUser(userId: string, forceRefresh = false): Promise<InsurancePolicy[]> {
-    return this.fetchWithCache(
-      `policies-user-${userId}`,
-      () => apiClient.get(`/api/policies?user_id=${userId}`).then(r => r.data),
+      () => apiClient.get(`/api/policies?user_id=${userId}`).then((r: any) => r.data),
       5 * 60 * 1000, // 5 minutes TTL
       forceRefresh
     );
@@ -224,7 +215,7 @@ class OptimizedApiService {
   async getDocumentComplete(documentId: string, forceRefresh = false): Promise<CompleteDocumentData> {
     return this.fetchWithCache(
       `document-complete-${documentId}`,
-      () => apiClient.get(`/api/documents/${documentId}/complete`).then(r => r.data),
+      () => apiClient.get(`/api/documents/${documentId}/complete`).then((r: any) => r.data),
       10 * 60 * 1000, // 10 minutes TTL
       forceRefresh
     );
@@ -233,7 +224,7 @@ class OptimizedApiService {
   async getDocumentsByUser(userId: string, forceRefresh = false): Promise<PolicyDocument[]> {
     return this.fetchWithCache(
       `documents-user-${userId}`,
-      () => apiClient.get(`/api/documents?user_id=${userId}`).then(r => r.data),
+      () => apiClient.get(`/api/documents?user_id=${userId}`).then((r: any) => r.data),
       5 * 60 * 1000, // 5 minutes TTL
       forceRefresh
     );
@@ -246,7 +237,7 @@ class OptimizedApiService {
   async getCarriers(forceRefresh = false): Promise<InsuranceCarrier[]> {
     return this.fetchWithCache(
       'carriers-all',
-      () => apiClient.get('/api/carriers').then(r => r.data),
+      () => apiClient.get('/api/carriers').then((r: any) => r.data),
       30 * 60 * 1000, // 30 minutes TTL (carriers change infrequently)
       forceRefresh
     );

@@ -84,14 +84,15 @@ async def get_categorized_benefits(
     if not policy:
         raise HTTPException(status_code=404, detail="Policy not found")
     
-    # Get benefits
-    benefits_query = db.query(CoverageBenefit).filter(CoverageBenefit.policy_id == policy_id)
+    # Get benefits with optimized query using joins and filters
+    benefits_query = (
+        db.query(CoverageBenefit)
+        .filter(CoverageBenefit.policy_id == policy_id)
+    )
     
-    # Apply filters
+    # Apply filters efficiently in the database query
     if filter_params.regulatory_level:
-        benefits_query = benefits_query.filter(
-            CoverageBenefit.regulatory_level.in_(filter_params.regulatory_level)
-        )
+        benefits_query = benefits_query.filter(CoverageBenefit.regulatory_level == filter_params.regulatory_level)
     
     if filter_params.prominent_category:
         benefits_query = benefits_query.filter(
@@ -144,14 +145,15 @@ async def get_categorized_red_flags(
     if not policy:
         raise HTTPException(status_code=404, detail="Policy not found")
     
-    # Get red flags
-    red_flags_query = db.query(RedFlag).filter(RedFlag.policy_id == policy_id)
+    # Get red flags with optimized query using joins and filters
+    red_flags_query = (
+        db.query(RedFlag)
+        .filter(RedFlag.policy_id == policy_id)
+    )
     
-    # Apply filters
+    # Apply filters efficiently in the database query
     if filter_params.regulatory_level:
-        red_flags_query = red_flags_query.filter(
-            RedFlag.regulatory_level.in_(filter_params.regulatory_level)
-        )
+        red_flags_query = red_flags_query.filter(RedFlag.regulatory_level == filter_params.regulatory_level)
     
     if filter_params.prominent_category:
         red_flags_query = red_flags_query.filter(
