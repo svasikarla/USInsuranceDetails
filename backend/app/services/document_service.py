@@ -32,7 +32,7 @@ def is_valid_document(file: UploadFile) -> bool:
     return True
 
 
-def save_upload_file(file: UploadFile, document_id: str) -> str:
+def save_upload_file(file: UploadFile, document_id: uuid.UUID) -> str:
     """
     Save uploaded file to disk
     """
@@ -200,7 +200,7 @@ def process_document(document_id: uuid.UUID) -> None:
                     except Exception as ai_error:
                         print(f"[WARNING] AI extraction failed: {str(ai_error)}")
                         # Create basic policy with minimal data as fallback
-                        extracted_data = self._create_fallback_policy_data(document, text)
+                        extracted_data = _create_fallback_policy_data(document, text)
 
                     if extracted_data:
                         # Store extracted data in the document

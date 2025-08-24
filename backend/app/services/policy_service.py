@@ -60,6 +60,8 @@ def create_policy(
     """
     # Get document to associate with policy
     document = get_document(db, obj_in.document_id)
+    if not document:
+        raise ValueError(f"Document with ID {obj_in.document_id} not found")
     
     # Create policy
     db_obj = models.InsurancePolicy(
@@ -479,14 +481,14 @@ def create_benefit(
     policy_id: uuid.UUID,
     category: str,
     name: str,
-    coverage_percentage: float = None,
-    copay_amount: float = None,
-    coinsurance_percentage: float = None,
+    coverage_percentage: Optional[float] = None,
+    copay_amount: Optional[float] = None,
+    coinsurance_percentage: Optional[float] = None,
     requires_preauth: bool = False,
-    network_restriction: str = None,
-    annual_limit: float = None,
-    visit_limit: int = None,
-    notes: str = None,
+    network_restriction: Optional[str] = None,
+    annual_limit: Optional[float] = None,
+    visit_limit: Optional[int] = None,
+    notes: Optional[str] = None,
 ) -> models.CoverageBenefit:
     """
     Create a new benefit for a policy
@@ -520,10 +522,10 @@ def create_red_flag(
     severity: str,
     title: str,
     description: str,
-    source_text: str = None,
-    page_number: str = None,
-    recommendation: str = None,
-    confidence_score: float = None,
+    source_text: Optional[str] = None,
+    page_number: Optional[str] = None,
+    recommendation: Optional[str] = None,
+    confidence_score: Optional[float] = None,
     detected_by: str = "system",
 ) -> models.RedFlag:
     """
