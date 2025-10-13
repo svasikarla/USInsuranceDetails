@@ -11,6 +11,21 @@ from app.core.dependencies import get_current_user
 router = APIRouter()
 
 
+@router.get("/recent", response_model=List[schemas.InsurancePolicy])
+async def get_recent_policies(
+    db: Session = Depends(get_db),
+    limit: int = 5,
+    current_user: schemas.User = Depends(get_current_user),
+) -> Any:
+    """
+    Retrieve recent insurance policies for the current user
+    """
+    policies = policy_service.get_recent_policies_lightweight(
+        db=db, user_id=current_user.id, limit=limit
+    )
+    return policies
+
+
 @router.get("", response_model=List[schemas.InsurancePolicy])
 async def get_policies(
     db: Session = Depends(get_db),

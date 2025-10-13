@@ -34,19 +34,46 @@ def is_valid_document(file: UploadFile) -> bool:
 
 def save_upload_file(file: UploadFile, document_id: str) -> str:
     """
-    Save uploaded file to disk
+    Save uploaded file to disk and verify its contents
     """
-    # Create uploads directory if it doesn't exist
-    upload_dir = os.path.join(settings.UPLOAD_FOLDER, str(document_id))
+    # Create uploads directory if it doesn't exist (use absolute path)
+    # Get the backend directory (where this file is located)
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    base_upload_folder = os.path.join(backend_dir, settings.UPLOAD_FOLDER.lstrip('./'))
+    upload_dir = os.path.join(base_upload_folder, str(document_id))
     os.makedirs(upload_dir, exist_ok=True)
+
+    print(f"[DEBUG] Backend dir: {backend_dir}")
+    print(f"[DEBUG] Base upload folder: {base_upload_folder}")
+    print(f"[DEBUG] Upload dir: {upload_dir}")
     
     # Create file path
     file_ext = os.path.splitext(file.filename)[1].lower()
     file_path = os.path.join(upload_dir, f"original{file_ext}")
     
     # Save file
+    file_size = 0
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        chunk = file.file.read(8192)
+        while chunk:
+            file_size += len(chunk)
+            buffer.write(chunk)
+            chunk = file.file.read(8192)
+    
+    print(f"[DEBUG] File saved successfully. Size: {file_size} bytes")
+    
+    # Verify PDF content if it's a PDF
+    if file_ext.lower() == '.pdf':
+        try:
+            import PyPDF2
+            with open(file_path, 'rb') as pdf_file:
+                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                num_pages = len(pdf_reader.pages)
+                first_page_text = pdf_reader.pages[0].extract_text()
+                print(f"[DEBUG] PDF verification - Pages: {num_pages}")
+                print(f"[DEBUG] First page preview: {first_page_text[:200]}")
+        except Exception as e:
+            print(f"[WARNING] PDF verification failed: {str(e)}")
     
     return file_path
 
@@ -59,6 +86,7 @@ def create_document(
     """
     try:
         print(f"[DEBUG] create_document called with carrier_id: {carrier_id} (type: {type(carrier_id)})")
+        print(f"[DEBUG] File details - filename: {file.filename}, content_type: {file.content_type}")
 
         # Generate new document ID
         document_id = uuid.uuid4()
@@ -67,6 +95,12 @@ def create_document(
         # Save uploaded file
         file_path = save_upload_file(file, document_id)
         print(f"[DEBUG] File saved to: {file_path}")
+
+        # Read first few bytes to verify file content
+        file.file.seek(0)
+        first_bytes = file.file.read(1024)
+        print(f"[DEBUG] First 1024 bytes of file: {first_bytes[:100]}")
+        file.file.seek(0)  # Reset file pointer
 
         # Handle carrier_id conversion
         carrier_uuid = None
@@ -127,14 +161,14 @@ def process_document_async(document_id: uuid.UUID) -> None:
 
 def process_document(document_id: uuid.UUID) -> None:
     """
-    Process document and extract text, then attempt automatic policy creation
+    Process document using the simplified pipeline.
 
-    This pipeline includes:
-    1. PDF text extraction
-    2. OCR for scanned documents
-    3. Text normalization
-    4. AI-powered policy data extraction
-    5. Automatic policy creation (if confidence is high enough)
+    SIMPLIFIED FLOW:
+    1. Extract text
+    2. Extract policy data
+    3. Create policy (if possible)
+
+    NO COMPLEXITY. NO CONFUSION.
     """
     # Get database session
     from app.utils.db import SessionLocal
@@ -144,135 +178,30 @@ def process_document(document_id: uuid.UUID) -> None:
         # Get document
         document = db.query(models.PolicyDocument).filter(models.PolicyDocument.id == document_id).first()
         if not document:
-            print(f"Document not found: {document_id}")
+            print(f"[ERROR] Document not found: {document_id}")
             return
 
-        # Get user for policy creation
-        user = db.query(models.User).filter(models.User.id == document.user_id).first()
-        if not user:
-            print(f"User not found for document: {document_id}")
-            return
+        print(f"[INFO] Processing document {document_id} with simplified processor")
+        print(f"[INFO] File: {document.original_filename}, Path: {document.file_path}")
 
-        # Update status to processing
-        document.processing_status = "processing"
-        db.commit()
+        # Use simplified processor
+        from app.services.simplified_document_processor import simplified_document_processor
 
-        # Extract text from document based on mime type
-        try:
-            if document.mime_type == "application/pdf" or document.file_path.endswith(".pdf"):
-                text = extract_text_from_pdf(document.file_path)
-            elif document.mime_type == "text/plain" or document.file_path.endswith(".txt"):
-                text = extract_text_from_txt(document.file_path)
-            else:
-                text = f"Text extraction not yet implemented for {document.mime_type}"
+        result = simplified_document_processor.process_document(db, document)
 
-            # Update document with extracted text
-            document.extracted_text = text
-            document.processing_status = "completed"
-            document.processed_at = datetime.utcnow()
-            document.ocr_confidence_score = 1.0  # Default for text extraction
+        # Log result
+        if result["success"]:
+            print(f"[SUCCESS] Document processed: {result['status']}")
+            if "policy_id" in result:
+                print(f"[SUCCESS] Policy created: {result['policy_id']}")
+        else:
+            print(f"[ERROR] Document processing failed: {result.get('error', 'Unknown error')}")
 
-            db.commit()
-
-            print(f"[DEBUG] Text extraction completed for document {document_id}")
-            print(f"[DEBUG] Extracted text length: {len(text)} characters")
-
-            # Attempt automatic policy extraction and creation if text extraction was successful
-            if text and len(text.strip()) > 100:  # Only if we have substantial text
-                try:
-                    print(f"[DEBUG] Starting automatic policy extraction for document {document_id}")
-                    from app.services.auto_policy_creation_service import auto_policy_creation_service
-                    from app.services.ai_policy_extraction_service import ai_policy_extraction_service
-
-                    # Refresh document to get latest state
-                    db.refresh(document)
-
-                    # Step 1: Extract policy data with timeout and fallback
-                    document.auto_creation_status = "extracting"
-                    db.commit()
-
-                    print(f"[DEBUG] Extracting policy data for document {document_id}")
-
-                    # Try AI extraction with timeout
-                    extracted_data = None
-                    try:
-                        extracted_data = ai_policy_extraction_service.extract_policy_data(document)
-                    except Exception as ai_error:
-                        print(f"[WARNING] AI extraction failed: {str(ai_error)}")
-                        # Create basic policy with minimal data as fallback
-                        extracted_data = self._create_fallback_policy_data(document, text)
-
-                    if extracted_data:
-                        # Store extracted data in the document
-                        document.extracted_policy_data = extracted_data.__dict__
-                        document.auto_creation_confidence = extracted_data.extraction_confidence
-
-                        print(f"[DEBUG] Extraction completed with confidence {extracted_data.extraction_confidence:.2f}")
-
-                        # Step 2: Determine next action based on confidence
-                        if extracted_data.extraction_confidence >= 0.8:
-                            # High confidence - attempt automatic creation
-                            print(f"[DEBUG] High confidence ({extracted_data.extraction_confidence:.2f}) - attempting auto-creation")
-                            try:
-                                creation_result = auto_policy_creation_service.process_document_for_auto_creation(
-                                    db=db, document=document, user=user
-                                )
-
-                                if creation_result.success:
-                                    document.auto_creation_status = "completed"
-                                    print(f"[SUCCESS] Auto-created policy {creation_result.policy_id} for document {document_id}")
-                                else:
-                                    document.auto_creation_status = "ready_for_review"
-                                    print(f"[INFO] Auto-creation failed, marked for review: {creation_result.validation_errors}")
-                            except Exception as creation_error:
-                                print(f"[ERROR] Policy creation failed: {str(creation_error)}")
-                                document.auto_creation_status = "ready_for_review"
-                        elif extracted_data.extraction_confidence >= 0.3:
-                            # Medium confidence - mark for user review
-                            document.auto_creation_status = "ready_for_review"
-                            print(f"[INFO] Medium confidence ({extracted_data.extraction_confidence:.2f}) - marked for user review")
-                        else:
-                            # Low confidence - create basic policy anyway for user to edit
-                            print(f"[INFO] Low confidence ({extracted_data.extraction_confidence:.2f}) - creating basic policy for user review")
-                            try:
-                                creation_result = auto_policy_creation_service.process_document_for_auto_creation(
-                                    db=db, document=document, user=user
-                                )
-                                if creation_result.success:
-                                    document.auto_creation_status = "completed"
-                                    print(f"[SUCCESS] Created basic policy {creation_result.policy_id} for user review")
-                                else:
-                                    document.auto_creation_status = "ready_for_review"
-                                    print(f"[INFO] Basic policy creation failed, marked for review")
-                            except Exception as creation_error:
-                                print(f"[ERROR] Basic policy creation failed: {str(creation_error)}")
-                                document.auto_creation_status = "ready_for_review"
-                    else:
-                        # No extracted data
-                        document.auto_creation_status = "failed"
-                        document.auto_creation_confidence = 0.0
-                        print(f"[ERROR] No policy data extracted for document {document_id}")
-
-                    db.commit()
-
-                except Exception as auto_create_error:
-                    print(f"[WARNING] Automatic policy extraction failed for document {document_id}: {str(auto_create_error)}")
-                    document.auto_creation_status = "failed"
-                    db.commit()
-                    # Don't fail the entire document processing if auto-creation fails
-                    pass
-            else:
-                print(f"[INFO] Skipping auto policy creation - insufficient text content")
-
-        except Exception as e:
-            print(f"[ERROR] Text extraction failed for document {document_id}: {str(e)}")
-            document.processing_status = "failed"
-            document.processing_error = str(e)
-            db.commit()
-        
     except Exception as e:
-        print(f"Error processing document: {e}")
-    
+        print(f"[ERROR] Exception processing document: {e}")
+        import traceback
+        traceback.print_exc()
+
     finally:
         db.close()
 

@@ -169,8 +169,9 @@ class AutoPolicyCreationService:
             return False
 
         # Lower threshold for fallback data - we want to create something for the user to work with
-        min_threshold = 0.3 if extracted_data.extraction_method == "pattern_matching_fallback" else workflow.auto_create_threshold
-        if extracted_data.extraction_confidence < min_threshold:
+        is_fallback = str(extracted_data.extraction_method) in ("pattern_matching", "pattern_matching_fallback")
+        min_threshold = 0.3 if is_fallback else workflow.auto_create_threshold
+        if (extracted_data.extraction_confidence or 0.0) < min_threshold:
             return False
 
         # Must have minimum required data (relaxed for fallback)

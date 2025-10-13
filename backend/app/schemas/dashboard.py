@@ -2,6 +2,8 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional
 from .red_flag import RedFlag
 from .policy import InsurancePolicy
+from .document import PolicyDocument
+from .carrier import InsuranceCarrier
 
 class ActivityItem(BaseModel):
     id: str
@@ -31,17 +33,17 @@ class DashboardRedFlag(BaseModel):
     policy_name: str
 
 class RedFlagsSummary(BaseModel):
-    total: int
-    by_severity: Dict[str, int]
-    by_risk_level: Dict[str, int]
-    by_regulatory_level: Dict[str, int]
-    by_prominent_category: Dict[str, int]
+    total: int = 0
+    by_severity: Dict[str, int] = {}
+    by_risk_level: Dict[str, int] = {}
+    by_regulatory_level: Dict[str, int] = {}
+    by_prominent_category: Dict[str, int] = {}
 
 class BenefitsSummary(BaseModel):
-    total: int
-    by_regulatory_level: Dict[str, int]
-    by_prominent_category: Dict[str, int]
-    by_federal_regulation: Dict[str, int]
+    total: int = 0
+    by_regulatory_level: Dict[str, int] = {}
+    by_prominent_category: Dict[str, int] = {}
+    by_federal_regulation: Dict[str, int] = {}
 
 class CategorizationSummary(BaseModel):
     total_categorized_items: int
@@ -72,8 +74,8 @@ class CompleteDashboardData(BaseModel):
     """
     summary: DashboardSummary
     recent_policies: List[DashboardPolicy]
-    recent_documents: List["PolicyDocument"]  # Forward reference
+    recent_documents: List[PolicyDocument]
     recent_red_flags: List[DashboardRedFlag]
-    carriers: List["InsuranceCarrier"]  # Forward reference
+    carriers: List[InsuranceCarrier]
 
     model_config = {"from_attributes": True}

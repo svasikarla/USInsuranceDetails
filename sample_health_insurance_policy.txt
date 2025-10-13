@@ -1,0 +1,109 @@
+COMPREHENSIVE HEALTH INSURANCE POLICY
+=====================================
+
+POLICY INFORMATION
+------------------
+Policy Name: Premium Health Plus Plan 2025
+Policy Type: Health
+Policy Number: HP-2025-789456123
+Plan Year: 2025
+Group Number: GRP-TECH-001
+Network Type: PPO
+
+COVERAGE DATES
+--------------
+Effective Date: 2025-01-01
+Expiration Date: 2025-12-31
+Coverage Start Date: January 1, 2025
+Coverage End Date: December 31, 2025
+
+FINANCIAL INFORMATION
+---------------------
+Monthly Premium: $485.50
+Annual Premium: $5826.00
+Individual Deductible: $1,500.00
+Family Deductible: $3,000.00
+Out-of-Pocket Maximum Individual: $7,500.00
+Out-of-Pocket Maximum Family: $15,000.00
+
+PROVIDER INFORMATION
+-------------------
+Insurance Carrier: BlueCross BlueShield
+Provider: BCBS Healthcare Network
+Member Services: 1-800-555-0123
+Website: www.bcbs.com
+
+MEMBER INFORMATION
+------------------
+Primary Member: John Smith
+Member ID: BCBS123456789
+Group: Technology Solutions Inc.
+Employer: Tech Solutions Inc.
+
+COVERAGE DETAILS
+----------------
+
+PREVENTIVE CARE
+- Annual physical exam: 100% covered
+- Routine immunizations: 100% covered
+- Mammograms and colonoscopies: 100% covered
+- Well-child visits: 100% covered
+
+PRIMARY CARE
+- Office visits: $25 copay
+- Urgent care: $50 copay
+- Telehealth visits: $15 copay
+
+SPECIALIST CARE
+- Specialist visits: $45 copay
+- Mental health visits: $30 copay (limited to 12 visits per year)
+- Physical therapy: $35 copay
+
+HOSPITAL SERVICES
+- Inpatient hospital: 20% coinsurance after deductible
+- Outpatient surgery: 15% coinsurance after deductible
+- Emergency room: $250 copay
+
+PRESCRIPTION DRUGS
+- Generic drugs: $10 copay
+- Preferred brand: $35 copay
+- Non-preferred brand: $65 copay
+- Specialty drugs: 25% coinsurance
+
+EXCLUSIONS AND LIMITATIONS
+--------------------------
+- Maternity coverage: 12-month waiting period for new members
+- Cosmetic surgery: Not covered unless medically necessary
+- Experimental treatments: Not covered
+- Out-of-network services: Require prior authorization
+- Dental and vision: Separate policies required
+
+RED FLAG ITEMS
+--------------
+1. Mental health visits are limited to 12 visits per year
+2. Maternity coverage has a 12-month waiting period
+3. Out-of-network services require prior authorization
+4. Emergency room visits have high $250 copay
+5. Specialty drugs have 25% coinsurance with no cap
+
+CONTACT INFORMATION
+------------------
+Customer Service: 1-800-555-0123
+Claims Department: 1-800-555-0456
+Prior Authorization: 1-800-555-0789
+Website: www.bcbs.com/members
+
+IMPORTANT NOTES
+---------------
+This policy is subject to all terms and conditions outlined in the full policy document. 
+Coverage is contingent upon timely premium payments and adherence to network guidelines.
+Pre-authorization is required for certain services to ensure coverage.
+
+For complete details, please refer to the full Summary of Benefits and Coverage (SBC) 
+document available on our website or by calling member services.
+
+Policy effective as of January 1, 2025.
+Document generated on December 15, 2024.
+
+END OF POLICY SUMMARY
+=====================

@@ -525,9 +525,18 @@ def create_red_flag(
     recommendation: str = None,
     confidence_score: float = None,
     detected_by: str = "system",
+    # Optional categorization fields
+    regulatory_level: Optional[str] = None,
+    prominent_category: Optional[str] = None,
+    federal_regulation: Optional[str] = None,
+    state_regulation: Optional[str] = None,
+    state_code: Optional[str] = None,
+    regulatory_context: Optional[str] = None,
+    risk_level: Optional[str] = None,
 ) -> models.RedFlag:
     """
-    Create a new red flag for a policy
+    Create a new red flag for a policy. Supports optional categorization fields.
+    If categorization fields are not provided, they will be auto-populated using CategorizationService.
     """
     red_flag = models.RedFlag(
         id=uuid.uuid4(),
@@ -541,12 +550,30 @@ def create_red_flag(
         recommendation=recommendation,
         confidence_score=confidence_score,
         detected_by=detected_by,
+        regulatory_level=regulatory_level,
+        prominent_category=prominent_category,
+        federal_regulation=federal_regulation,
+        state_regulation=state_regulation,
+        state_code=state_code,
+        regulatory_context=regulatory_context,
+        risk_level=risk_level,
     )
-    
+
+    # Auto-categorize if missing
+    if not red_flag.regulatory_level or not red_flag.prominent_category:
+        try:
+            from app.services.categorization_service import categorization_service
+            cat = categorization_service.categorize_red_flag(red_flag)
+            for key, value in cat.items():
+                setattr(red_flag, key, value)
+        except Exception:
+            # Fail-safe: leave categorization empty; categorized endpoints will backfill on fetch
+            pass
+
     db.add(red_flag)
     db.commit()
     db.refresh(red_flag)
-    
+
     return red_flag
 
 
@@ -618,10 +645,17 @@ def get_policy_red_flags(
     """
     Get all red flags for a policy
     """
+    from sqlalchemy import case
+    severity_order = case(
+        (models.RedFlag.severity == 'critical', 4),
+        (models.RedFlag.severity == 'high', 3),
+        (models.RedFlag.severity == 'medium', 2),
+        else_=1
+    )
     return (
         db.query(models.RedFlag)
         .filter(models.RedFlag.policy_id == policy_id)
-        .order_by(models.RedFlag.severity)
+        .order_by(severity_order.desc(), models.RedFlag.created_at.desc())
         .all()
     )
 
@@ -714,6 +748,39 @@ def get_dashboard_summary_optimized(db: Session, user_id: uuid.UUID) -> Dict[str
     recent_date = datetime.utcnow() - timedelta(days=30)
 
     # Execute the aggregated query
+    result = db.execute(dashboard_query, {"user_id": str(user_id), "recent_date": recent_date}).fetchone()
+
+    # Construct policies by type dictionary
+    policies_by_type = {
+        "health": result.health_policies or 0,
+        "dental": result.dental_policies or 0,
+        "vision": result.vision_policies or 0,
+        "life": result.life_policies or 0
+    }
+
+    # Construct red flags summary
+    red_flags_summary = {
+        "total": result.total_red_flags or 0,
+        "by_severity": {
+            "high": result.high_severity_flags or 0,
+            "medium": result.medium_severity_flags or 0,
+            "low": result.low_severity_flags or 0,
+            "critical": result.critical_severity_flags or 0
+        }
+    }
+
+    # Return dashboard summary dictionary
+    return {
+        "total_policies": result.total_policies or 0,
+        "total_documents": result.total_documents or 0,
+        "policies_by_type": policies_by_type,
+        "red_flags_summary": red_flags_summary,
+        "recent_activity_counts": {
+            "policies": result.recent_policies_count or 0,
+            "documents": result.recent_documents_count or 0,
+            "red_flags": result.recent_red_flags_count or 0
+        }
+    }
     result = db.execute(dashboard_query, {
         "user_id": str(user_id),
         "recent_date": recent_date

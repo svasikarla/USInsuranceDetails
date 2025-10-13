@@ -7,6 +7,7 @@ for multiple formats, OCR fallback, and text preprocessing for AI analysis.
 
 import logging
 import os
+import time
 import tempfile
 from typing import Optional, Tuple, Dict, Any
 from dataclasses import dataclass
@@ -85,15 +86,14 @@ class EnhancedTextExtractionService:
     def extract_text_from_file(self, file_path: str, mime_type: Optional[str] = None) -> ExtractionResult:
         """
         Extract text from a file using the best available method
-        
+
         Args:
             file_path: Path to the file
             mime_type: MIME type of the file (optional)
-            
+
         Returns:
             ExtractionResult with extracted text and metadata
         """
-        import time
         start_time = time.time()
         
         # Determine file type
