@@ -139,6 +139,14 @@ export interface RedFlag {
   recommendation?: string;
   confidence_score?: number;
   detected_by: 'system' | 'manual' | 'ai';
+  // Categorization fields (optional)
+  regulatory_level?: 'federal' | 'state' | 'federal_state';
+  prominent_category?: 'coverage_access' | 'cost_financial' | 'medical_necessity_exclusions' | 'process_administrative' | 'special_populations';
+  federal_regulation?: 'aca_ehb' | 'erisa' | 'federal_consumer_protection' | 'mental_health_parity' | 'preventive_care' | 'emergency_services';
+  state_regulation?: 'state_mandated_benefits' | 'state_consumer_protection' | 'state_network_adequacy' | 'state_prior_auth_limits' | 'state_coverage_requirements';
+  state_code?: string;
+  regulatory_context?: string;
+  risk_level?: 'low' | 'medium' | 'high' | 'critical';
   created_at: string;
 }
 
@@ -154,7 +162,8 @@ export interface DashboardStats {
     by_severity: Record<string, number>;
   };
   recent_red_flags: RedFlag[];
-  recent_policies: InsurancePolicy[];  // Add recent policies to eliminate redundant API call
+  recent_policies: InsurancePolicy[];
+  categorization_summary?: any; // backend includes categorization summary in dashboard summary
 }
 
 export interface ActivityItem {

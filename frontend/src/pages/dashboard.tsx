@@ -1,17 +1,18 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
+import { useRetry } from '../hooks/useRetry';
 import { ProtectedRoute } from '../components/auth/ProtectedRoute';
+import { toast } from 'react-hot-toast';
 import { Layout, PageHeader, StatsGrid, EmptyState } from '../components/layout/Layout';
 import { Card, Button, AnimatedCounter, Badge } from '../components/ui/DesignSystem';
-import { optimizedApiService } from '../services/optimizedApiService';
+import { dashboardService } from '../services/dashboardService';
 import { DashboardStats, InsurancePolicy, RedFlag } from '../types/api';
 import ErrorBoundary from '../components/common/ErrorBoundary';
 import { DashboardSkeleton } from '../components/common/SkeletonLoaders';
-import { useRetry } from '../hooks/useRetry';
 import { parseApiError, getErrorMessage } from '../utils/errorHandling';
 import CategorizationSummaryCard from '../components/dashboard/CategorizationSummaryCard';
 import CategorizationAnalyticsChart from '../components/dashboard/CategorizationAnalyticsChart';
@@ -33,7 +34,11 @@ import {
 
 // Memoized Components for Performance Optimization
 
-const DashboardStats = React.memo(({ stats }: { stats: DashboardStats | null }) => {
+interface DashboardStatsProps {
+  stats: DashboardStats | null;
+}
+
+const DashboardStats: React.FC<DashboardStatsProps> = React.memo(({ stats }) => {
   const enhancedStats = useMemo(() => {
     if (!stats) return [];
 
@@ -83,7 +88,11 @@ const DashboardStats = React.memo(({ stats }: { stats: DashboardStats | null }) 
 
 DashboardStats.displayName = 'DashboardStats';
 
-const RecentRedFlags = React.memo(({ redFlags }: { redFlags: RedFlag[] }) => {
+interface RecentRedFlagsProps {
+  redFlags: RedFlag[];
+}
+
+const RecentRedFlags: React.FC<RecentRedFlagsProps> = React.memo(({ redFlags }) => {
   const getSeverityColor = useCallback((severity: string) => {
     switch (severity?.toLowerCase()) {
       case 'high': return 'border-red-200 bg-red-50';
@@ -135,7 +144,11 @@ const RecentRedFlags = React.memo(({ redFlags }: { redFlags: RedFlag[] }) => {
 
 RecentRedFlags.displayName = 'RecentRedFlags';
 
-const RecentPolicies = React.memo(({ policies }: { policies: InsurancePolicy[] }) => {
+interface RecentPoliciesProps {
+  policies: InsurancePolicy[];
+}
+
+const RecentPolicies: React.FC<RecentPoliciesProps> = React.memo(({ policies }) => {
   if (!policies || policies.length === 0) {
     return null;
   }
@@ -236,80 +249,52 @@ const QuickActions = React.memo(() => {
 
 QuickActions.displayName = 'QuickActions';
 
+interface DashboardError extends Error {
+  code?: string;
+  response?: any;
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const router = useRouter();
 
-  // Use optimized API with retry mechanism
-  const [retryState, retryActions, dashboardData] = useRetry(
-    async () => {
-      const data = await optimizedApiService.getDashboardComplete();
-      return data;
-    },
-    {
-      maxRetries: 3,
-      delay: 1000,
-      onRetry: (attempt, error) => {
-        console.log(`Dashboard load retry attempt ${attempt}:`, error.message);
-      },
-      onMaxRetriesReached: (error) => {
-        console.error('Dashboard load failed after max retries:', error);
-      }
+  const [dashboardData, setDashboardData] = useState<{
+    stats: DashboardStats;
+    recentPolicies: InsurancePolicy[];
+    recentRedFlags: RedFlag[];
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<DashboardError | null>(null);
+  const [showCategorization, setShowCategorization] = useState(false);
+
+  const loadDashboardData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await dashboardService.fetchDashboardDataWithRetry();
+      setDashboardData(data);
+    } catch (err: any) {
+      setError(err);
+    } finally {
+      setIsLoading(false);
     }
-  );
+  }, []);
 
-  // Extract data from the optimized response
-  const dashboardStats = useMemo(() => {
-    if (!dashboardData?.summary) return null;
-    return dashboardData.summary;
-  }, [dashboardData]);
-
-  const recentPoliciesData = useMemo(() => {
-    return dashboardData?.recent_policies || [];
-  }, [dashboardData]);
-
-  // Load data on component mount
   useEffect(() => {
-    retryActions.execute();
-  }, []); // Empty dependency array - only run on mount
+    loadDashboardData();
+  }, [loadDashboardData]);
 
-  // Memoized error message
   const errorMessage = useMemo(() => {
-    if (!retryState.error) return null;
-    const parsedError = parseApiError(retryState.error);
+    if (!error) return null;
+    const parsedError = parseApiError(error);
     return getErrorMessage(parsedError);
-  }, [retryState.error]);
+  }, [error]);
 
-  // Memoized utility functions to prevent re-creation on every render
-  const formatCurrency = useCallback((amount?: number) => {
-    if (!amount) return '$0';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  }, []);
-
-  const formatDate = useCallback((dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  }, []);
-
-  // Memoized recent red flags to prevent unnecessary re-renders
-  const recentRedFlags = useMemo(() => {
-    return dashboardStats?.recent_red_flags || [];
-  }, [dashboardStats?.recent_red_flags]);
-
-  if (retryState.isLoading) {
+  if (isLoading) {
     return (
       <ProtectedRoute>
         <Head>
-          <title>Dashboard - InsureAI Platform</title>
-          <meta name="description" content="Your insurance policy analysis dashboard" />
+          <title>Loading... - InsureAI Platform</title>
         </Head>
         <Layout showNavigation={true}>
           <DashboardSkeleton />
@@ -318,19 +303,19 @@ export default function Dashboard() {
     );
   }
 
-  if (retryState.error && !retryState.canRetry) {
+  if (error || !dashboardData) {
     return (
       <ProtectedRoute>
         <Head>
-          <title>Dashboard - InsureAI Platform</title>
+          <title>Error - InsureAI Platform</title>
         </Head>
         <Layout showNavigation={true}>
           <EmptyState
             title="Error Loading Dashboard"
-            description={errorMessage || 'Failed to load dashboard data'}
+            description={errorMessage || 'Failed to load dashboard data. Please try again.'}
             action={{
               label: "Try Again",
-              onClick: retryActions.retry
+              onClick: loadDashboardData,
             }}
             icon={ExclamationTriangleIcon}
           />
@@ -339,182 +324,126 @@ export default function Dashboard() {
     );
   }
 
+  const { stats, recentPolicies, recentRedFlags } = dashboardData;
+
   return (
     <ProtectedRoute>
-      <Head>
-        <title>Dashboard - InsureAI Platform</title>
-        <meta name="description" content="Your insurance policy analysis dashboard with AI-powered insights" />
-      </Head>
       <Layout showNavigation={true}>
-        <ErrorBoundary
-          onError={(error, errorInfo) => {
-            console.error('Dashboard Error Boundary caught error:', error, errorInfo);
-          }}
-          resetKeys={[user?.id, dashboardData]}
-        >
-        {/* Welcome Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="mb-8"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">
-                Welcome back, {user?.first_name || 'User'}! 👋
-              </h1>
-              <p className="mt-2 text-lg text-gray-600">
-                Here's what's happening with your insurance policies today.
-              </p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => router.push('/documents/upload')}
-                className="flex items-center space-x-2"
-                aria-label="Upload new insurance document"
-                title="Upload a new insurance policy document"
-              >
-                <PlusIcon className="h-4 w-4" aria-hidden="true" />
-                <span>Upload Document</span>
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => router.push('/policies/new')}
-                className="flex items-center space-x-2"
-                aria-label="Add new insurance policy"
-                title="Create a new insurance policy manually"
-              >
-                <PlusIcon className="h-4 w-4" aria-hidden="true" />
-                <span>Add Policy</span>
-              </Button>
-            </div>
-          </div>
-        </motion.div>
+        <ErrorBoundary>
+          <Head>
+            <title>Dashboard | Insurance Platform</title>
+            <meta name="description" content="Your insurance dashboard" />
+          </Head>
 
-        {/* Optimized Stats Grid - Memoized Component */}
-        <DashboardStats stats={dashboardStats} />
+          {/* Welcome Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-8"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">
+                  Welcome back, {user?.first_name || 'User'}! 👋
+                </h1>
+                <p className="mt-2 text-lg text-gray-600">
+                  Here's what's happening with your insurance policies today.
+                </p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/documents/upload')}
+                  className="flex items-center space-x-2"
+                  aria-label="Upload new insurance document"
+                  title="Upload a new insurance policy document"
+                >
+                  <PlusIcon className="h-4 w-4" aria-hidden="true" />
+                  <span>Upload Document</span>
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => router.push('/policies/new')}
+                  className="flex items-center space-x-2"
+                  aria-label="Add new insurance policy"
+                  title="Create a new insurance policy manually"
+                >
+                  <PlusIcon className="h-4 w-4" aria-hidden="true" />
+                  <span>Add Policy</span>
+                </Button>
+              </div>
+            </div>
+          </motion.div>
 
-        {/* Main Content Grid */}
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column (Main Content) */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* AI Insights - Memoized Component */}
+          {/* Dashboard Stats */}
+          <DashboardStats stats={stats} />
+
+          {/* Categorization Summary */}
+          {showCategorization && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="bg-white rounded-lg shadow p-6 mb-6"
+            >
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Categorization Summary</h2>
+              <div className="grid grid-cols-1 gap-4">
+                <CategorizationSummaryCard
+                  categorizationSummary={stats?.categorization_summary as any}
+                />
+              </div>
+            </motion.div>
+          )}
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Recent Policies */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <RecentPolicies policies={recentPolicies} />
+            </motion.div>
+
+            {/* Recent Red Flags */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
-              <Card className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50">
-                <div className="flex items-center space-x-2 mb-4">
-                  <ShieldCheckIcon className="h-5 w-5 text-indigo-600" />
-                  <h2 className="text-xl font-semibold text-gray-900">AI Insights</h2>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
-                    <p className="text-sm text-gray-700">
-                      Your policies have <strong>95% coverage</strong> for essential benefits.
-                    </p>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 flex-shrink-0" />
-                    <p className="text-sm text-gray-700">
-                      Consider reviewing <strong>dental coverage</strong> limits for better protection.
-                    </p>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                    <p className="text-sm text-gray-700">
-                      Potential savings of <strong>$2,400/year</strong> identified across policies.
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-
-            {/* Categorization Summary */}
-            {dashboardStats?.categorization_summary && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-              >
-                <CategorizationSummaryCard
-                  categorizationSummary={dashboardStats.categorization_summary}
-                />
-              </motion.div>
-            )}
-
-            {/* Categorization Analytics */}
-            {dashboardStats?.categorization_summary && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.6 }}
-              >
-                <CategorizationAnalyticsChart
-                  categorizationSummary={dashboardStats.categorization_summary}
-                />
-              </motion.div>
-            )}
-
-            {/* Recent Red Flags - Memoized Component */}
-            <RecentRedFlags redFlags={recentRedFlags} />
-          </div>
-
-          {/* Right Column (Sidebar) */}
-          <div className="space-y-6">
-            {/* Categorization Quick Actions */}
-            {dashboardStats?.categorization_summary ? (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.6 }}
-              >
-                <CategorizationQuickActions
-                  categorizationSummary={dashboardStats.categorization_summary}
-                  onAutoCategorize={async () => {
-                    // TODO: Implement auto-categorization for all policies
-                    console.log('Auto-categorizing all policies...');
-                  }}
-                  onRefreshData={async () => {
-                    retryActions.retry();
-                  }}
-                  onExportReport={async () => {
-                    // TODO: Implement export functionality
-                    console.log('Exporting categorization report...');
-                  }}
-                  onViewFiltered={(filter) => {
-                    // TODO: Navigate to filtered view
-                    console.log('Viewing filtered data:', filter);
-                    router.push(`/policies?filter=${filter}`);
-                  }}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.6 }}
-              >
-                <QuickActions />
-              </motion.div>
-            )}
-
-            {/* Recent Policies - Memoized Component */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.8 }}
-            >
-              <RecentPolicies policies={recentPoliciesData} />
+              <RecentRedFlags redFlags={recentRedFlags} />
             </motion.div>
           </div>
-        </div>
-        </ErrorBoundary>
-      </Layout>
-    </ProtectedRoute>
-  );
+
+          {/* Quick Stats */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            className="bg-white rounded-lg shadow p-6"
+          >
+            <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Stats</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <p className="text-sm text-gray-500">Total Policies</p>
+                <p className="text-2xl font-semibold">{stats.total_policies}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Active Policies</p>
+                <p className="text-2xl font-semibold">{stats.total_policies}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Recent Red Flags</p>
+                <p className="text-2xl font-semibold">{stats.red_flags_summary.total}</p>
+              </div>
+            </div>
+          </motion.div>
+      </ErrorBoundary>
+    </Layout>
+  </ProtectedRoute>
+);
+
 }
+

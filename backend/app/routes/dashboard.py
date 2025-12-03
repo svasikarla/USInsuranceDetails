@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Response, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict
+from datetime import datetime
+import logging
 
 from app import schemas
 from app.utils.db import get_db
@@ -9,6 +11,7 @@ from app.services import policy_service, document_service, carrier_service
 from app.services.dashboard_categorization_service import dashboard_categorization_service
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/summary", response_model=schemas.DashboardSummary)
 async def get_dashboard_summary(
@@ -20,17 +23,129 @@ async def get_dashboard_summary(
     OPTIMIZED: Uses single aggregated query instead of multiple separate queries.
     Performance improvement: 60-70% faster than previous implementation.
     """
-    from datetime import datetime
+    try:
+        # Get optimized dashboard summary with single aggregated query
+        logger.debug("Fetching dashboard summary")
+        dashboard_stats = policy_service.get_dashboard_summary_optimized(db=db, user_id=current_user.id)
 
-    # Get optimized dashboard summary with single aggregated query
-    dashboard_stats = policy_service.get_dashboard_summary_optimized(db=db, user_id=current_user.id)
+        # Get recent policies and red flags with lightweight queries
+        logger.debug("Fetching recent policies and red flags")
+        recent_policies_data = policy_service.get_recent_policies_lightweight(db=db, user_id=current_user.id, limit=5)
+        recent_red_flags_data = policy_service.get_recent_red_flags_lightweight(db=db, user_id=current_user.id, limit=5)
 
-    # Get recent policies and red flags with lightweight queries
-    recent_policies_data = policy_service.get_recent_policies_lightweight(db=db, user_id=current_user.id, limit=5)
-    recent_red_flags_data = policy_service.get_recent_red_flags_lightweight(db=db, user_id=current_user.id, limit=5)
+        # Build policies by carrier (only if we have policies)
+        policies_by_carrier: Dict[str, int] = {}
+        if dashboard_stats["total_policies"] > 0:
+            # Only fetch carrier data if we have policies - lightweight query
+            from sqlalchemy import text
+            carrier_query = text("""
+                SELECT c.name, COUNT(p.id) as policy_count
+                FROM insurance_policies p
+                JOIN insurance_carriers c ON p.carrier_id = c.id
+                WHERE p.user_id = :user_id
+                GROUP BY c.name
+            """)
+            carrier_results = db.execute(carrier_query, {"user_id": str(current_user.id)}).fetchall()
+            policies_by_carrier = {row.name: row.policy_count for row in carrier_results}
 
-    # Build policies by carrier (only if we have policies)
-    policies_by_carrier: Dict[str, int] = {}
+        # Build recent activity from the counts we already have
+        recent_activity = []
+        activity_counts = dashboard_stats.get("recent_activity_counts", {})
+
+        if activity_counts.get("policies", 0) > 0:
+            recent_activity.append(schemas.ActivityItem(
+                id="recent_policies",
+                type="policy_created",
+                title=f"{activity_counts['policies']} New Policies",
+                description="New insurance policies added in the last 30 days",
+                timestamp=datetime.utcnow().isoformat()
+            ))
+
+        if activity_counts.get("documents", 0) > 0:
+            recent_activity.append(schemas.ActivityItem(
+                id="recent_documents",
+                type="document_uploaded",
+                title=f"{activity_counts['documents']} Documents Processed",
+                description="New documents uploaded and processed in the last 30 days",
+                timestamp=datetime.utcnow().isoformat()
+            ))
+
+        if activity_counts.get("red_flags", 0) > 0:
+            recent_activity.append(schemas.ActivityItem(
+                id="recent_red_flags",
+                type="red_flag_detected",
+                title=f"{activity_counts['red_flags']} Red Flags Detected",
+                description="New red flags identified in the last 30 days",
+                timestamp=datetime.utcnow().isoformat()
+            ))
+
+        # Convert lightweight data to simplified policy objects for dashboard
+        recent_policies = []
+        for policy_data in recent_policies_data:
+            policy_dict = {
+                "id": policy_data["id"],
+                "policy_name": policy_data["policy_name"],
+                "policy_type": policy_data["policy_type"],
+                "created_at": policy_data["created_at"],
+                "carrier_name": policy_data.get("carrier_name"),
+                "carrier_code": policy_data.get("carrier_code")
+            }
+            recent_policies.append(policy_dict)
+
+        # Convert lightweight data to simplified red flag objects for dashboard
+        recent_red_flags = []
+        for flag_data in recent_red_flags_data:
+            flag_dict = {
+                "id": flag_data["id"],
+                "policy_id": flag_data["policy_id"],
+                "title": flag_data["title"],
+                "severity": flag_data["severity"],
+                "flag_type": flag_data["flag_type"],
+                "description": f"Red flag detected in {flag_data['policy_name']}",
+                "created_at": flag_data["created_at"],
+                "policy_name": flag_data["policy_name"]
+            }
+            recent_red_flags.append(schemas.DashboardRedFlag(**flag_dict))
+
+        # Convert policy dictionaries to schema objects
+        recent_policies_objects = [schemas.DashboardPolicy(**policy) for policy in recent_policies]
+
+        # Get categorization summary
+        logger.debug("Fetching categorization summary")
+        categorization_summary = dashboard_categorization_service.get_categorization_summary(db, current_user.id)
+
+        # Enhanced red flags summary with categorization
+        enhanced_red_flags_summary = dashboard_stats["red_flags_summary"]
+        enhanced_red_flags_summary.update({
+            "by_risk_level": categorization_summary.red_flags_summary.by_risk_level,
+            "by_regulatory_level": categorization_summary.red_flags_summary.by_regulatory_level,
+            "by_prominent_category": categorization_summary.red_flags_summary.by_prominent_category
+        })
+
+        logger.debug("Building dashboard summary response")
+        return schemas.DashboardSummary(
+            total_policies=dashboard_stats["total_policies"],
+            total_documents=dashboard_stats["total_documents"],
+            policies_by_type=dashboard_stats["policies_by_type"],
+            policies_by_carrier=policies_by_carrier,
+            recent_activity=recent_activity,
+            red_flags_summary=schemas.RedFlagsSummary(
+                total=enhanced_red_flags_summary["total"],
+                by_severity=enhanced_red_flags_summary["by_severity"],
+                by_risk_level=enhanced_red_flags_summary.get("by_risk_level", {}),
+                by_regulatory_level=enhanced_red_flags_summary.get("by_regulatory_level", {}),
+                by_prominent_category=enhanced_red_flags_summary.get("by_prominent_category", {})
+            ),
+            recent_red_flags=recent_red_flags,
+            recent_policies=recent_policies_objects,
+            categorization_summary=categorization_summary
+        )
+    except Exception as e:
+        logger.error(f"Error in get_dashboard_summary: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while fetching dashboard data"
+        ) from e
     if dashboard_stats["total_policies"] > 0:
         # Only fetch carrier data if we have policies - lightweight query
         from sqlalchemy import text
@@ -113,28 +228,33 @@ async def get_dashboard_summary(
     # Enhanced red flags summary with categorization
     enhanced_red_flags_summary = dashboard_stats["red_flags_summary"]
     enhanced_red_flags_summary.update({
-        "by_risk_level": categorization_summary.red_flags_summary.get("by_risk_level", {}),
-        "by_regulatory_level": categorization_summary.red_flags_summary.get("by_regulatory_level", {}),
-        "by_prominent_category": categorization_summary.red_flags_summary.get("by_prominent_category", {})
+        "by_risk_level": categorization_summary.red_flags_summary.by_risk_level,
+        "by_regulatory_level": categorization_summary.red_flags_summary.by_regulatory_level,
+        "by_prominent_category": categorization_summary.red_flags_summary.by_prominent_category
     })
 
-    return schemas.DashboardSummary(
-        total_policies=dashboard_stats["total_policies"],
-        total_documents=dashboard_stats["total_documents"],
-        policies_by_type=dashboard_stats["policies_by_type"],
-        policies_by_carrier=policies_by_carrier,
-        recent_activity=recent_activity,
-        red_flags_summary=schemas.RedFlagsSummary(
-            total=enhanced_red_flags_summary["total"],
-            by_severity=enhanced_red_flags_summary["by_severity"],
-            by_risk_level=enhanced_red_flags_summary.get("by_risk_level", {}),
-            by_regulatory_level=enhanced_red_flags_summary.get("by_regulatory_level", {}),
-            by_prominent_category=enhanced_red_flags_summary.get("by_prominent_category", {})
-        ),
-        recent_red_flags=recent_red_flags,
-        recent_policies=recent_policies_objects,
-        categorization_summary=categorization_summary
-    )
+    try:
+        logger.debug("Building dashboard summary response")
+        return schemas.DashboardSummary(
+            total_policies=dashboard_stats["total_policies"],
+            total_documents=dashboard_stats["total_documents"],
+            policies_by_type=dashboard_stats["policies_by_type"],
+            policies_by_carrier=policies_by_carrier,
+            recent_activity=recent_activity,
+            red_flags_summary=schemas.RedFlagsSummary(
+                total=enhanced_red_flags_summary["total"],
+                by_severity=enhanced_red_flags_summary["by_severity"],
+                by_risk_level=enhanced_red_flags_summary.get("by_risk_level", {}),
+                by_regulatory_level=enhanced_red_flags_summary.get("by_regulatory_level", {}),
+                by_prominent_category=enhanced_red_flags_summary.get("by_prominent_category", {})
+            ),
+            recent_red_flags=recent_red_flags,
+            recent_policies=recent_policies_objects,
+            categorization_summary=categorization_summary
+        )
+    except Exception as e:
+        logger.error(f"Error in get_dashboard_summary: {str(e)}", exc_info=True)
+        raise
 
 
 @router.get("/complete", response_model=schemas.CompleteDashboardData)

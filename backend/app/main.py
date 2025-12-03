@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from .routes import auth, documents, policies, carriers, search, ai_analysis, users, dashboard, categorization
+from .routes import auth, documents, policies, carriers, search, ai_analysis, users, dashboard, categorization, red_flags
 from .core.config import settings
 
 app = FastAPI(
@@ -30,6 +30,7 @@ app.include_router(search.router, prefix="/api", tags=["Search"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(ai_analysis.router, prefix="/api/ai", tags=["AI Analysis"])
 app.include_router(categorization.router, tags=["Categorization"])
+app.include_router(red_flags.router, prefix="/api/red-flags", tags=["Red Flags"])
 
 @app.on_event("startup")
 async def list_routes():

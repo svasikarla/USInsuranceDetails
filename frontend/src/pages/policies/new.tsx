@@ -38,6 +38,101 @@ export default function CreatePolicyPage() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (router.query.document_id) {
+      setFormData(prev => ({
+        ...prev,
+        document_id: router.query.document_id as string
+      }));
+      loadExtractedData(router.query.document_id as string);
+    }
+  }, [router.query]);
+
+  const loadExtractedData = async (documentId: string) => {
+    try {
+      console.log('Fetching extracted data for document:', documentId);
+      const extractedData = await documentApi.getExtractedPolicyData(documentId);
+      console.log('Received extracted data:', extractedData);
+      
+      if (!extractedData) {
+        console.log('No response from extraction endpoint');
+        setError('Failed to retrieve policy data from the server');
+        return;
+      }
+
+      if (extractedData.processing_status !== 'completed') {
+        console.log('Document processing not completed:', extractedData.processing_status);
+        setError(`Document processing status: ${extractedData.processing_status}`);
+        return;
+      }
+
+      if (!extractedData.extracted_policy_data) {
+        console.log('No extracted policy data available:', extractedData);
+        let errorMessage = 'No policy data could be extracted from this document.';
+
+        // Provide more specific error details
+        const details = [];
+
+        if (extractedData.processing_status === 'failed') {
+          details.push('Document text extraction failed');
+        }
+        if (extractedData.processing_error) {
+          details.push(`Processing error: ${extractedData.processing_error}`);
+        }
+        if (extractedData.auto_creation_status === 'failed') {
+          details.push('Policy data extraction failed');
+        }
+        if (extractedData.auto_creation_confidence !== undefined && extractedData.auto_creation_confidence === 0) {
+          details.push('No recognizable policy information found');
+        }
+
+        if (details.length > 0) {
+          errorMessage += '\n\nDetails:\n• ' + details.join('\n• ');
+        }
+
+        errorMessage += '\n\nPlease ensure your document contains clear policy information and try uploading again, or create the policy manually.';
+
+        setError(errorMessage);
+        return;
+      }
+
+      const data = extractedData.extracted_policy_data;
+      console.log('Processing extracted data:', data);
+
+      if (extractedData.auto_creation_confidence && extractedData.auto_creation_confidence < 0.3) {
+        console.log('Low confidence in extracted data:', extractedData.auto_creation_confidence);
+        setError('Warning: Low confidence in extracted data. Please review carefully.');
+      }
+        
+      setFormData(prev => {
+        const newData = {
+          ...prev,
+          document_id: documentId,
+          policy_name: data.policy_name || prev.policy_name,
+          policy_type: data.policy_type || prev.policy_type,
+          policy_number: data.policy_number || prev.policy_number,
+          plan_year: data.plan_year || prev.plan_year,
+          effective_date: data.effective_date || prev.effective_date,
+          expiration_date: data.expiration_date || prev.expiration_date,
+          group_number: data.group_number || prev.group_number,
+          network_type: data.network_type || prev.network_type,
+          deductible_individual: data.deductible_individual || prev.deductible_individual,
+          deductible_family: data.deductible_family || prev.deductible_family,
+          out_of_pocket_max_individual: data.out_of_pocket_max_individual || prev.out_of_pocket_max_individual,
+          out_of_pocket_max_family: data.out_of_pocket_max_family || prev.out_of_pocket_max_family,
+          premium_monthly: data.premium_monthly || prev.premium_monthly,
+          premium_annual: data.premium_annual || prev.premium_annual,
+          carrier_id: data.carrier_id || prev.carrier_id
+        };
+        console.log('Updated form data:', newData);
+        return newData;
+      });
+    } catch (err) {
+      console.error('Error loading extracted data:', err);
+      setError('Failed to load extracted policy data. Please try again.');
+    }
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -123,13 +218,13 @@ export default function CreatePolicyPage() {
       // Clean up form data - remove empty strings and undefined values
       const cleanedData: InsurancePolicyCreate = {
         document_id: formData.document_id,
-        policy_name: formData.policy_name.trim(),
+        policy_name: formData.policy_name?.trim() || '',
         policy_type: formData.policy_type || undefined,
-        policy_number: formData.policy_number.trim() || undefined,
-        plan_year: formData.plan_year.trim() || undefined,
+        policy_number: formData.policy_number ? formData.policy_number.trim() : undefined,
+        plan_year: formData.plan_year ? formData.plan_year.trim() : undefined,
         effective_date: formData.effective_date || undefined,
         expiration_date: formData.expiration_date || undefined,
-        group_number: formData.group_number.trim() || undefined,
+        group_number: formData.group_number ? formData.group_number.trim() : undefined,
         network_type: formData.network_type || undefined,
         deductible_individual: formData.deductible_individual || undefined,
         deductible_family: formData.deductible_family || undefined,
@@ -201,6 +296,15 @@ export default function CreatePolicyPage() {
             </div>
           )}
 
+          {formData.document_id && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-md p-4">
+              <p className="text-blue-800">
+                This form has been pre-filled with data extracted from the selected document. 
+                Please review and update the information as needed.
+              </p>
+            </div>
+          )}
+
           {documents.length === 0 && (
             <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-md p-4">
               <p className="text-yellow-800">
@@ -225,7 +329,53 @@ export default function CreatePolicyPage() {
                   </label>
                   <select
                     value={formData.document_id}
-                    onChange={(e) => handleInputChange('document_id', e.target.value)}
+                    onChange={async (e) => {
+                      const selectedDocId = e.target.value;
+                      console.log('Document selected:', selectedDocId);
+                      handleInputChange('document_id', selectedDocId);
+                      setError(null);
+                      
+                      if (selectedDocId) {
+                        try {
+                          // Get document status first
+                          const docStatus = await documentApi.getDocumentStatus(selectedDocId);
+                          console.log('Document status:', docStatus);
+
+                          if (docStatus.processing_status !== 'completed') {
+                            setError(`Document is still being processed. Status: ${docStatus.processing_status}`);
+                            return;
+                          }
+
+                          // Try to get any existing extracted data first
+                          try {
+                            const extractedData = await documentApi.getExtractedPolicyData(selectedDocId);
+                            console.log('Initial extracted data:', extractedData);
+                            
+                            if (!extractedData.extracted_policy_data) {
+                              console.log('No existing extracted data, triggering extraction...');
+                              // If no existing data, trigger extraction
+                              await documentApi.triggerPolicyCreation(selectedDocId, true);
+                              console.log('Extraction triggered, waiting for results...');
+                              
+                              // Wait briefly then fetch the extracted data
+                              setTimeout(async () => {
+                                await loadExtractedData(selectedDocId);
+                              }, 2000);
+                            } else {
+                              // Use existing extracted data
+                              console.log('Using existing extracted data');
+                              await loadExtractedData(selectedDocId);
+                            }
+                          } catch (err) {
+                            console.error('Error in data extraction:', err);
+                            setError('Failed to extract policy data. Please try again.');
+                          }
+                        } catch (err) {
+                          console.error('Error checking document status:', err);
+                          setError('Failed to check document status. Please try again.');
+                        }
+                      }
+                    }}
                     className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       errors.document_id ? 'border-red-300' : 'border-gray-300'
                     }`}
@@ -235,6 +385,8 @@ export default function CreatePolicyPage() {
                     {documents.map((doc) => (
                       <option key={doc.id} value={doc.id}>
                         {getDocumentDisplayName(doc)}
+                        {doc.id === router.query.document_id ? ' (Pre-selected)' : ''}
+                        {doc.processing_status !== 'completed' ? ` (${doc.processing_status})` : ''}
                       </option>
                     ))}
                   </select>

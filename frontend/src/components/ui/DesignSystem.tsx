@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { motion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
 
@@ -134,9 +134,10 @@ export const Input: React.FC<InputProps> = ({
   'aria-describedby': ariaDescribedBy,
   required = false
 }) => {
-  // Generate unique ID if not provided
-  const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+  const generatedId = useId();
+  const inputId = id || generatedId;
   const errorId = error ? `${inputId}-error` : undefined;
+
   return (
     <div className={`space-y-2 ${className}`}>
       {label && (

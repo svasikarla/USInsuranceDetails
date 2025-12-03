@@ -11,18 +11,14 @@ interface LoginResponse {
 
 export const authService = {
   async login(email: string, password: string): Promise<LoginResponse> {
-    const formData = new FormData();
-    formData.append('username', email);
-    formData.append('password', password);
+    const body = new URLSearchParams();
+    body.set('username', email);
+    body.set('password', password);
 
     const response: AxiosResponse<LoginResponse> = await apiClient.post(
       '/api/auth/login',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
+      body,
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
     );
 
     const { access_token, refresh_token } = response.data;
@@ -45,17 +41,14 @@ export const authService = {
     return response.data;
   },
 
-  logout(): void {
+  async logout(): Promise<void> {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
-  },
-
-  getToken(): string | null {
-    return localStorage.getItem(ACCESS_TOKEN_KEY);
-  },
-
-  isAuthenticated(): boolean {
-    return !!this.getToken();
+    try {
+      await apiClient.post('/api/auth/logout');
+    } catch (e) {
+      // ignore network errors on logout
+    }
   },
 };
 

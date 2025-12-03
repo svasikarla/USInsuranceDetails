@@ -67,17 +67,17 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (name: string, value: string) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value,
+      [name]: value,
     }));
 
     // Clear field error when user starts typing
-    if (errors[field]) {
+    if (errors[name]) {
       setErrors(prev => ({
         ...prev,
-        [field]: '',
+        [name]: '',
       }));
     }
   };
@@ -139,135 +139,85 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
           <div className="space-y-4">
             {/* Name fields */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
-                  First Name
-                </label>
-                <input
-                  id="first_name"
-                  name="first_name"
-                  type="text"
-                  autoComplete="given-name"
-                  required
-                  className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
-                    errors.first_name ? 'border-red-300' : 'border-gray-300'
-                  } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                  placeholder="First name"
-                  value={formData.first_name}
-                  onChange={handleInputChange}
-                />
-                {errors.first_name && (
-                  <p className="mt-1 text-sm text-red-600">{errors.first_name}</p>
-                )}
-              </div>
+              <Input
+                label="First Name"
+                id="first_name"
+                name="first_name"
+                type="text"
+                autoComplete="given-name"
+                required
+                placeholder="First name"
+                value={formData.first_name}
+                onChange={(value) => handleInputChange('first_name', value)}
+                error={errors.first_name}
+              />
 
-              <div>
-                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
-                  Last Name
-                </label>
-                <input
-                  id="last_name"
-                  name="last_name"
-                  type="text"
-                  autoComplete="family-name"
-                  required
-                  className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
-                    errors.last_name ? 'border-red-300' : 'border-gray-300'
-                  } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                  placeholder="Last name"
-                  value={formData.last_name}
-                  onChange={handleInputChange}
-                />
-                {errors.last_name && (
-                  <p className="mt-1 text-sm text-red-600">{errors.last_name}</p>
-                )}
-              </div>
+              <Input
+                label="Last Name"
+                id="last_name"
+                name="last_name"
+                type="text"
+                autoComplete="family-name"
+                required
+                placeholder="Last name"
+                value={formData.last_name}
+                onChange={(value) => handleInputChange('last_name', value)}
+                error={errors.last_name}
+              />
             </div>
 
             {/* Email field */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email Address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
-                  errors.email ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                placeholder="Email address"
-                value={formData.email}
-                onChange={handleInputChange}
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-              )}
-            </div>
+            <Input
+              label="Email Address"
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              placeholder="Email address"
+              value={formData.email}
+              onChange={(value) => handleInputChange('email', value)}
+              error={errors.email}
+            />
 
             {/* Company field (optional) */}
-            <div>
-              <label htmlFor="company_name" className="block text-sm font-medium text-gray-700">
-                Company Name (Optional)
-              </label>
-              <input
-                id="company_name"
-                name="company_name"
-                type="text"
-                autoComplete="organization"
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                placeholder="Company name"
-                value={formData.company_name}
-                onChange={handleInputChange}
-              />
-            </div>
+            <Input
+              label="Company Name (Optional)"
+              id="company_name"
+              name="company_name"
+              type="text"
+              autoComplete="organization"
+              placeholder="Company name"
+              value={formData.company_name}
+              onChange={(value) => handleInputChange('company_name', value)}
+            />
 
             {/* Password fields */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
-                  errors.password ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                placeholder="Password (min. 8 characters)"
-                value={formData.password}
-                onChange={handleInputChange}
-              />
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password}</p>
-              )}
-            </div>
+            <Input
+              label="Password"
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              required
+              placeholder="Password (min. 8 characters)"
+              value={formData.password}
+              onChange={(value) => handleInputChange('password', value)}
+              error={errors.password}
+            />
 
-            <div>
-              <label htmlFor="password_confirm" className="block text-sm font-medium text-gray-700">
-                Confirm Password
-              </label>
-              <input
-                id="password_confirm"
-                name="password_confirm"
-                type="password"
-                autoComplete="new-password"
-                required
-                className={`mt-1 appearance-none relative block w-full px-3 py-2 border ${
-                  errors.password_confirm ? 'border-red-300' : 'border-gray-300'
-                } placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm`}
-                placeholder="Confirm password"
-                value={formData.password_confirm}
-                onChange={handleInputChange}
-              />
-              {errors.password_confirm && (
-                <p className="mt-1 text-sm text-red-600">{errors.password_confirm}</p>
-              )}
-            </div>
+            <Input
+              label="Confirm Password"
+              id="password_confirm"
+              name="password_confirm"
+              type="password"
+              autoComplete="new-password"
+              required
+              placeholder="Confirm password"
+              value={formData.password_confirm}
+              onChange={(value) => handleInputChange('password_confirm', value)}
+              error={errors.password_confirm}
+            />
           </div>
 
           <div>

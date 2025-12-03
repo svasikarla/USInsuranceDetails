@@ -147,12 +147,12 @@ async def get_document_complete(
         from app.services import carrier_service
         carrier = carrier_service.get_carrier(db=db, carrier_id=document.carrier_id)
 
-    # Get processing status and any error information
+    # Get processing status and any error information (using consistent field names)
     processing_status = {
-        "status": document.status,
+        "status": document.processing_status,
         "processing_progress": getattr(document, 'processing_progress', 0),
-        "error_message": getattr(document, 'error_message', None),
-        "processed_at": document.updated_at if document.status == "completed" else None
+        "error_message": getattr(document, 'processing_error', None),
+        "processed_at": document.processed_at if document.processing_status == "completed" else None
     }
 
     return schemas.CompleteDocumentData(
@@ -302,7 +302,14 @@ async def get_extracted_policy_data(
         "auto_creation_confidence": float(document.auto_creation_confidence) if document.auto_creation_confidence else 0.0,
         "extracted_policy_data": document.extracted_policy_data,
         "user_reviewed_at": document.user_reviewed_at,
-        "processing_status": document.processing_status
+        "processing_status": document.processing_status,
+        "processing_error": document.processing_error,
+        # Diagnostic information
+        "has_extracted_text": bool(document.extracted_text),
+        "extracted_text_length": len(document.extracted_text) if document.extracted_text else 0,
+        "file_size_bytes": document.file_size_bytes,
+        "mime_type": document.mime_type,
+        "original_filename": document.original_filename
     }
 
 

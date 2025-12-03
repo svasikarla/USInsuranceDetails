@@ -690,7 +690,7 @@ export default function PolicyDetailPage() {
                     <div className="flex items-center justify-between">
                       <h2 className="text-xl font-bold text-white flex items-center">
                         <ExclamationTriangleIcon className="h-6 w-6 mr-2" />
-                        Red Flags ({getFilteredCategorizedRedFlags().length})
+                        Red Flags ({categorizedRedFlags.length > 0 ? getFilteredCategorizedRedFlags().length : redFlags.length})
                       </h2>
                       <div className="flex items-center space-x-4">
                         {redFlagStats.total > 0 && (
@@ -731,7 +731,7 @@ export default function PolicyDetailPage() {
                         className="overflow-hidden"
                       >
                         <div className="p-6 bg-gradient-to-br from-white to-red-50">
-                          {categorizedRedFlags.length === 0 ? (
+                          {redFlags.length === 0 ? (
                             <div className="text-center py-8">
                               <CheckCircleIcon className="h-12 w-12 text-green-500 mx-auto mb-4" />
                               <p className="text-green-600 text-lg font-semibold">No Red Flags Detected!</p>
@@ -739,7 +739,7 @@ export default function PolicyDetailPage() {
                                 This policy appears to have no concerning limitations or exclusions
                               </p>
                             </div>
-                          ) : (
+                          ) : categorizedRedFlags.length > 0 ? (
                             <div className="space-y-4">
                               {getFilteredCategorizedRedFlags().map((categorizedRedFlag, index) => (
                                 <motion.div
@@ -752,6 +752,37 @@ export default function PolicyDetailPage() {
                                     categorizedRedFlag={categorizedRedFlag}
                                     showDetails={true}
                                   />
+                                </motion.div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              {redFlags.map((redFlag, index) => (
+                                <motion.div
+                                  key={redFlag.id}
+                                  initial={{ opacity: 0, x: -20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ duration: 0.4, delay: index * 0.1 }}
+                                  className={`border-2 rounded-xl p-5 ${getSeverityColor(redFlag.severity)}`}
+                                >
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div className="flex-1">
+                                      <div className="flex items-center space-x-2 mb-2">
+                                        <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />
+                                        <h3 className="text-lg font-bold text-gray-900">{redFlag.title}</h3>
+                                      </div>
+                                      <Badge variant={getSeverityBadgeVariant(redFlag.severity)} size="md">
+                                        {redFlag.severity?.toUpperCase()}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <p className="text-gray-700 leading-relaxed mb-3">{redFlag.description}</p>
+                                  {redFlag.flag_type && (
+                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                      <span className="text-sm font-medium text-gray-600">Type: </span>
+                                      <span className="text-sm text-gray-900">{redFlag.flag_type}</span>
+                                    </div>
+                                  )}
                                 </motion.div>
                               ))}
                             </div>

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { useRouter } from 'next/router';
 import { authService } from '../services/authService';
 import { NavigationGuard } from '../utils/navigationGuard';
+import { ACCESS_TOKEN_KEY } from '../services/apiClient';
 
 // Types
 export interface User {
@@ -49,50 +50,63 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Check if user is authenticated on app load
   useEffect(() => {
-    checkAuth();
+    let mounted = true;
+
+    const init = async () => {
+      try {
+        await checkAuth();
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    init();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const checkAuth = async () => {
-    try {
-      const token = authService.getToken();
-      if (token) {
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (token) {
+      try {
         const userData = await authService.getCurrentUser();
         setUser(userData);
+      } catch (error) {
+        console.debug('Auth check: failed to fetch user');
+        setUser(null);
+        // Optionally, logout to clear invalid tokens
+        authService.logout();
       }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      authService.removeToken();
+    } else {
+      setUser(null);
+    }
+  };
+
+  const login = async (email: string, password: string) => {
+    setLoading(true);
+    try {
+      const response = await authService.login(email, password);
+      setUser(response.user);
+
+      const redirectTo = (router.query.redirect as string) || '/dashboard';
+      await NavigationGuard.safeReplace(router, redirectTo);
     } finally {
       setLoading(false);
     }
   };
 
-  const login = async (email: string, password: string) => {
-    try {
-      setLoading(true);
-      const response = await authService.login(email, password);
-      setUser(response.user);
-
-      // Redirect to dashboard or intended page using safe navigation
-      const redirectTo = router.query.redirect as string || '/dashboard';
-      await NavigationGuard.safePush(router, redirectTo);
-    } catch (error) {
-      setLoading(false);
-      throw error;
-    }
-  };
-
   const register = async (userData: RegisterData) => {
+    setLoading(true);
     try {
-      setLoading(true);
       const response = await authService.register(userData);
       setUser(response);
 
-      // Redirect to dashboard after successful registration using safe navigation
-      await NavigationGuard.safePush(router, '/dashboard');
-    } catch (error) {
+      // After registration, log the user in to get tokens
+      await login(userData.email, userData.password);
+    } finally {
       setLoading(false);
-      throw error;
     }
   };
 

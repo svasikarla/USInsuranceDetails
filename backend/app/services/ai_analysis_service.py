@@ -374,7 +374,15 @@ Return only valid JSON without any additional text or formatting.
                     page_number=red_flag_result.page_number,
                     recommendation=red_flag_result.recommendation,
                     confidence_score=red_flag_result.confidence_score,
-                    detected_by="ai"
+                    detected_by="ai",
+                    # Categorization fields from AI
+                    regulatory_level=red_flag_result.regulatory_level,
+                    prominent_category=red_flag_result.prominent_category,
+                    federal_regulation=red_flag_result.federal_regulation,
+                    state_regulation=red_flag_result.state_regulation,
+                    state_code=red_flag_result.state_code,
+                    regulatory_context=red_flag_result.regulatory_context,
+                    risk_level=red_flag_result.risk_level,
                 )
                 created_red_flags.append(red_flag)
 

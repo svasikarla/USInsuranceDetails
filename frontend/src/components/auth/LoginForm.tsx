@@ -32,23 +32,25 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
     // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (name: string, value: string) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value,
+      [name]: value,
     }));
 
     // Clear field error when user starts typing
-    if (errors[field]) {
+    if (errors[name]) {
       setErrors(prev => ({
         ...prev,
-        [field]: '',
+        [name]: '',
       }));
     }
   };
@@ -65,7 +67,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       await login(formData.email, formData.password);
       onSuccess?.();
     } catch (error: any) {
-      setSubmitError(error.message);
+      const apiMessage = error?.response?.data?.detail || error?.response?.data?.message;
+      const message = apiMessage || error?.message || 'Unable to sign in. Please try again.';
+      setSubmitError(message);
     }
   };
 

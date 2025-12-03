@@ -1,0 +1,7 @@
+{
+  "supabase_db": {
+    "mcp": {
+      "url": "postgresql://postgres.pkiztedrylfvymdowtno:4p31reNRKs6tTaeh@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"
+    }
+  }
+}

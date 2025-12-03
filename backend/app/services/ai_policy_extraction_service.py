@@ -113,24 +113,58 @@ class AIPolicyExtractionService:
                 extraction_errors=["No extracted text available"]
             )
 
+        # Log text content for debugging
+        text_preview = document.extracted_text[:500] if document.extracted_text else "No text"
+        logger.info(f"Attempting extraction for document {document.id}")
+        logger.info(f"Text preview: {text_preview}")
+        
+        # Basic text quality checks
+        if len(document.extracted_text) < 100:
+            logger.error(f"Document text too short ({len(document.extracted_text)} chars)")
+            return ExtractedPolicyData(
+                extraction_confidence=0.0,
+                extraction_errors=["Document contains insufficient text"]
+            )
+            
+        # Check for common policy keywords
+        policy_keywords = ['policy', 'insurance', 'coverage', 'benefit', 'premium', 'deductible']
+        found_keywords = [word for word in policy_keywords if word.lower() in document.extracted_text.lower()]
+        if not found_keywords:
+            logger.error("No policy-related keywords found in document")
+            return ExtractedPolicyData(
+                extraction_confidence=0.0,
+                extraction_errors=["Document does not appear to be an insurance policy"]
+            )
+
         # Try AI extraction first
         if self.is_available:
             try:
+                logger.info(f"Attempting AI extraction for document {document.id}")
                 ai_result = self._extract_with_ai(document)
+                logger.info(f"AI extraction completed with confidence: {ai_result.extraction_confidence:.2f}")
+
                 # If AI extraction has good confidence, use it
                 if ai_result.extraction_confidence > 0.3:
+                    logger.info(f"Using AI extraction result (confidence: {ai_result.extraction_confidence:.2f})")
                     return ai_result
                 else:
                     logger.warning(f"AI extraction confidence too low ({ai_result.extraction_confidence:.2f}), falling back to patterns")
                     # Fall back to pattern matching
-                    return self._extract_with_patterns(document)
+                    pattern_result = self._extract_with_patterns(document)
+                    pattern_result.extraction_errors.append(f"AI confidence too low: {ai_result.extraction_confidence:.2f}")
+                    return pattern_result
             except Exception as e:
-                logger.error(f"AI extraction failed: {str(e)}")
+                logger.error(f"AI extraction failed for document {document.id}: {str(e)}")
                 # Fall back to pattern matching
-                return self._extract_with_patterns(document)
+                pattern_result = self._extract_with_patterns(document)
+                pattern_result.extraction_errors.append(f"AI extraction failed: {str(e)}")
+                return pattern_result
         else:
+            logger.warning(f"AI service not available for document {document.id}, using pattern matching")
             # Use pattern matching fallback
-            return self._extract_with_patterns(document)
+            pattern_result = self._extract_with_patterns(document)
+            pattern_result.extraction_errors.append("AI service not available")
+            return pattern_result
     
     def _extract_with_ai(self, document: PolicyDocument) -> ExtractedPolicyData:
         """Extract policy data using AI"""
@@ -153,11 +187,20 @@ class AIPolicyExtractionService:
     
     def _extract_with_patterns(self, document: PolicyDocument) -> ExtractedPolicyData:
         """Fallback extraction using regex patterns"""
+        if not document.extracted_text:
+            logger.error(f"No extracted text available for pattern matching on document {document.id}")
+            return ExtractedPolicyData(
+                extraction_method="pattern_matching",
+                extraction_confidence=0.0,
+                extraction_errors=["No extracted text available for pattern matching"]
+            )
+
         text = document.extracted_text.lower()
-        
+        logger.info(f"Starting pattern matching extraction for document {document.id} (text length: {len(text)})")
+
         extracted_data = ExtractedPolicyData(
             extraction_method="pattern_matching",
-            extraction_confidence=0.5  # Lower confidence for pattern matching
+            extraction_confidence=0.3  # Lower confidence for pattern matching
         )
         
         # Enhanced pattern matching

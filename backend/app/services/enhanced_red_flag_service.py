@@ -75,9 +75,27 @@ class EnhancedRedFlagService:
                 confidence_score=flag_data.get('confidence_score', 0.8),
                 detected_by=flag_data.get('detected_by', 'pattern_enhanced'),
                 recommendation=flag_data.get('recommendation', ''),
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
+                # Optional categorization fields
+                regulatory_level=flag_data.get('regulatory_level'),
+                prominent_category=flag_data.get('prominent_category'),
+                federal_regulation=flag_data.get('federal_regulation'),
+                state_regulation=flag_data.get('state_regulation'),
+                state_code=flag_data.get('state_code'),
+                regulatory_context=flag_data.get('regulatory_context'),
+                risk_level=flag_data.get('risk_level'),
             )
-            
+
+            # Auto-categorize if missing
+            if not red_flag.regulatory_level or not red_flag.prominent_category:
+                try:
+                    from app.services.categorization_service import categorization_service
+                    cat = categorization_service.categorize_red_flag(red_flag)
+                    for key, value in cat.items():
+                        setattr(red_flag, key, value)
+                except Exception:
+                    pass
+
             db.add(red_flag)
             db.flush()
             return red_flag

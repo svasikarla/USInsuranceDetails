@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text, func
 
 from app.models import CoverageBenefit, RedFlag, InsurancePolicy
-from app.schemas.dashboard import BenefitsSummary, CategorizationSummary
+from app.schemas.dashboard import BenefitsSummary, RedFlagsSummary, CategorizationSummary
 from app.services.categorization_service import categorization_service
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ class DashboardCategorizationService:
             by_federal_regulation=by_federal_regulation
         )
     
-    def _get_red_flags_summary(self, db: Session, user_id: str) -> Dict:
+    def _get_red_flags_summary(self, db: Session, user_id: str) -> RedFlagsSummary:
         """Get red flags categorization summary"""
         
         # Query red flags with categorization data
@@ -132,13 +132,13 @@ class DashboardCategorizationService:
             if row.prominent_category:
                 by_prominent_category[row.prominent_category] = by_prominent_category.get(row.prominent_category, 0) + count
         
-        return {
-            "total": total,
-            "by_severity": by_severity,
-            "by_risk_level": by_risk_level,
-            "by_regulatory_level": by_regulatory_level,
-            "by_prominent_category": by_prominent_category
-        }
+        return RedFlagsSummary(
+            total=total,
+            by_severity=by_severity,
+            by_risk_level=by_risk_level,
+            by_regulatory_level=by_regulatory_level,
+            by_prominent_category=by_prominent_category
+        )
     
     def _calculate_compliance_score(self, db: Session, user_id: str) -> float:
         """Calculate regulatory compliance score (0-100)"""

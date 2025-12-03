@@ -69,11 +69,25 @@ class ApiCache {
   private readonly LONG_TTL = 30 * 60 * 1000; // 30 minutes
 
   set<T>(key: string, data: T, ttl?: number): void {
+    // Don't cache null or undefined data
+    if (data === null || data === undefined) {
+      return;
+    }
+    
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
       ttl: ttl || this.DEFAULT_TTL,
     });
+  }
+
+  clearExpired(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.cache.entries()) {
+      if (now - entry.timestamp > entry.ttl) {
+        this.cache.delete(key);
+      }
+    }
   }
 
   get<T>(key: string): T | null {
@@ -172,6 +186,24 @@ class OptimizedApiService {
     return this.fetchWithCache(
       'dashboard-summary',
       () => apiClient.get('/api/dashboard/summary').then(r => r.data),
+      5 * 60 * 1000, // 5 minutes TTL
+      forceRefresh
+    );
+  }
+
+  async getRecentPolicies(limit: number = 5, forceRefresh = false): Promise<InsurancePolicy[]> {
+    return this.fetchWithCache(
+      `recent-policies-${limit}`,
+      () => apiClient.get(`/api/policies/recent?limit=${limit}`).then(r => r.data),
+      5 * 60 * 1000, // 5 minutes TTL
+      forceRefresh
+    );
+  }
+
+  async getRecentRedFlags(limit: number = 5, forceRefresh = false): Promise<RedFlag[]> {
+    return this.fetchWithCache(
+      `recent-red-flags-${limit}`,
+      () => apiClient.get(`/api/red-flags/recent?limit=${limit}`).then(r => r.data),
       5 * 60 * 1000, // 5 minutes TTL
       forceRefresh
     );
