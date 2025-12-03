@@ -20,6 +20,7 @@ from app.models import PolicyDocument, InsurancePolicy, User
 from app.schemas.policy import InsurancePolicyCreate
 from app.services.text_extraction_service import text_extraction_service
 from app.services.ai_policy_extraction_service import ai_policy_extraction_service
+from app.services.enhanced_red_flag_service import enhanced_red_flag_service
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +142,19 @@ class SimplifiedDocumentProcessor:
             db.commit()
 
             logger.info(f"[SIMPLIFIED] Policy created successfully: {policy.id}")
+
+            # STEP 4: Analyze Red Flags
+            try:
+                logger.info(f"[SIMPLIFIED] Analyzing red flags for policy {policy.id}")
+                red_flags = enhanced_red_flag_service.analyze_policy_with_duplicate_prevention(
+                    db=db,
+                    policy=policy,
+                    document=document
+                )
+                logger.info(f"[SIMPLIFIED] Red flag analysis completed: {len(red_flags)} flags detected")
+            except Exception as e:
+                logger.error(f"[SIMPLIFIED] Red flag analysis failed: {str(e)}")
+                # Don't fail the whole process if red flag analysis fails
 
             return {
                 "success": True,

@@ -374,25 +374,30 @@ export default function Dashboard() {
                 </Button>
               </div>
             </div>
+          </motion.div>
+
+          {/* Dashboard Stats */}
+          <DashboardStats stats={stats} />
+
+          {/* Categorization Summary */}
+          {showCategorization && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="bg-white rounded-lg shadow p-6 mb-6"
+            >
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Categorization Summary</h2>
+              <div className="grid grid-cols-1 gap-4">
+                <CategorizationSummaryCard
+                  categorizationSummary={stats?.categorization_summary as any}
+                />
+              </div>
             </motion.div>
+          )}
 
-            {/* Categorization Summary */}
-            {showCategorization && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                className="bg-white rounded-lg shadow p-6"
-              >
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Categorization Summary</h2>
-                <div className="grid grid-cols-1 gap-4">
-                  <CategorizationSummaryCard
-                    categorizationSummary={stats?.categorization_summary as any}
-                  />
-                </div>
-              </motion.div>
-            )}
-
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Recent Policies */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -402,7 +407,6 @@ export default function Dashboard() {
               <RecentPolicies policies={recentPolicies} />
             </motion.div>
 
-          <div className="space-y-6">
             {/* Recent Red Flags */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -411,31 +415,31 @@ export default function Dashboard() {
             >
               <RecentRedFlags redFlags={recentRedFlags} />
             </motion.div>
-
-            {/* Quick Stats */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-              className="bg-white rounded-lg shadow p-6"
-            >
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Stats</h2>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-500">Total Policies</p>
-                  <p className="text-2xl font-semibold">{stats.total_policies}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Active Policies</p>
-                  <p className="text-2xl font-semibold">{stats.total_policies}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Recent Red Flags</p>
-                  <p className="text-2xl font-semibold">{stats.red_flags_summary.total}</p>
-                </div>
-              </div>
-            </motion.div>
           </div>
+
+          {/* Quick Stats */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            className="bg-white rounded-lg shadow p-6"
+          >
+            <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Stats</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <p className="text-sm text-gray-500">Total Policies</p>
+                <p className="text-2xl font-semibold">{stats.total_policies}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Active Policies</p>
+                <p className="text-2xl font-semibold">{stats.total_policies}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Recent Red Flags</p>
+                <p className="text-2xl font-semibold">{stats.red_flags_summary.total}</p>
+              </div>
+            </div>
+          </motion.div>
       </ErrorBoundary>
     </Layout>
   </ProtectedRoute>

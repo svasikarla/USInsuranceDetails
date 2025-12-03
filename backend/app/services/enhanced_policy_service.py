@@ -16,6 +16,7 @@ from app.services.policy_service import (
     create_policy as base_create_policy,
     analyze_policy_and_generate_benefits_flags as basic_analysis
 )
+from app.services.enhanced_red_flag_service import enhanced_red_flag_service
 from app.schemas.policy import InsurancePolicyCreate
 from app.core.config import settings
 from decimal import Decimal
@@ -186,19 +187,27 @@ class EnhancedPolicyService:
             except Exception as e:
                 logger.error(f"AI analysis failed for policy {policy.id}: {str(e)}, falling back to basic analysis")
         
-        # Fallback to basic analysis
-        logger.info(f"Using basic analysis for policy {policy.id}")
+        # Fallback to enhanced pattern-based analysis
+        logger.info(f"Using enhanced pattern-based analysis for policy {policy.id}")
         try:
+            # Use enhanced red flag service for better detection
+            red_flags = enhanced_red_flag_service.analyze_policy_with_duplicate_prevention(
+                db=db,
+                policy=policy,
+                document=document
+            )
+
+            # Also run basic analysis for benefits
             basic_analysis(db, policy, document)
-            
-            # Get the created red flags and benefits
-            red_flags = db.query(RedFlag).filter(RedFlag.policy_id == policy.id).all()
+
+            # Get the created benefits
             benefits = db.query(CoverageBenefit).filter(CoverageBenefit.policy_id == policy.id).all()
-            
+
+            logger.info(f"Enhanced pattern analysis completed: {len(red_flags)} red flags, {len(benefits)} benefits")
             return red_flags, benefits
-            
+
         except Exception as e:
-            logger.error(f"Basic analysis failed for policy {policy.id}: {str(e)}")
+            logger.error(f"Enhanced pattern analysis failed for policy {policy.id}: {str(e)}")
             return [], []
     
     def _clear_ai_analysis(self, db: Session, policy_id: uuid.UUID) -> None:
