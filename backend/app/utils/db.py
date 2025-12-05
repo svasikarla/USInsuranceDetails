@@ -54,7 +54,7 @@ else:
         }
     )
 
-print(f"✅ Database engine configured with {'QueuePool' if is_supabase_pooler else 'NullPool'}")
+print(f"[OK] Database engine configured with {'QueuePool' if is_supabase_pooler else 'NullPool'}")
 
 # Create session factory with optimized settings
 SessionLocal = sessionmaker(

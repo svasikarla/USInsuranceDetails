@@ -256,3 +256,38 @@ export interface AutoPolicyCreationResponse {
   confidence_score: number;
   created_at: string;
 }
+
+// Enhanced Processing Status Types
+export interface ProcessingStage {
+  name: string;  // 'upload', 'extraction', 'ai_analysis', 'policy_creation'
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  progress_percentage: number;
+  message?: string;
+  completed_at?: string;
+}
+
+export interface DocumentProcessingStatus {
+  document_id: string;
+  overall_status: 'pending' | 'processing' | 'completed' | 'failed';
+  overall_progress: number;  // 0-100
+  current_stage: string;
+  stages: ProcessingStage[];
+
+  // Processing results
+  extraction_confidence?: number;
+  auto_creation_status?: string;
+  auto_creation_confidence?: number;
+
+  // Routing information
+  should_review: boolean;
+  policy_created: boolean;
+  policy_id?: string;
+
+  // Timing
+  started_at?: string;
+  completed_at?: string;
+
+  // Messages
+  error_message?: string;
+  info_message?: string;
+}

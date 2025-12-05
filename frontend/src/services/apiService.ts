@@ -10,7 +10,8 @@ import {
   DashboardStats,
   PaginatedResponse,
   PolicyFilters,
-  DocumentFilters
+  DocumentFilters,
+  DocumentProcessingStatus
 } from '../types/api';
 
 // Define missing types for carriers
@@ -176,11 +177,35 @@ export const documentApi = {
     };
   },
 
+  // Get enhanced processing status with stages (NEW endpoint for status page)
+  async getDocumentProcessingStatus(documentId: string): Promise<DocumentProcessingStatus> {
+    const response = await apiClient.get(`/api/documents/${documentId}/processing-status`);
+    return response.data;
+  },
+
   // Download document (if backend supports it)
   async downloadDocument(documentId: string): Promise<Blob> {
     const response = await apiClient.get(`/api/documents/${documentId}/download`, {
       responseType: 'blob'
     });
+    return response.data;
+  },
+
+  // Save draft of reviewed policy data (NEW)
+  async saveDraft(documentId: string, draftData: any): Promise<any> {
+    const response = await apiClient.post(`/api/documents/${documentId}/save-draft`, draftData);
+    return response.data;
+  },
+
+  // Retry processing a failed document (NEW)
+  async retryProcessing(documentId: string, force: boolean = false): Promise<any> {
+    const response = await apiClient.post(`/api/documents/${documentId}/retry-processing`, { force });
+    return response.data;
+  },
+
+  // Get incomplete documents (in review, processing, or failed) (NEW)
+  async getIncompleteDocuments(): Promise<any[]> {
+    const response = await apiClient.get('/api/documents/incomplete');
     return response.data;
   }
 };

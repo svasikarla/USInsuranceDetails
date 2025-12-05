@@ -8,6 +8,7 @@ import { Layout, PageHeader, EmptyState } from '../../components/layout/Layout';
 import { Card, Button, Badge } from '../../components/ui/DesignSystem';
 import { documentApi, carrierApi } from '../../services/apiService';
 import { InsuranceCarrier, PolicyDocument } from '../../types/api';
+import InlineProcessingCard from '../../components/InlineProcessingCard';
 import {
   CloudArrowUpIcon,
   DocumentTextIcon,
@@ -40,10 +41,27 @@ export default function DocumentUploadPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [incompleteDocuments, setIncompleteDocuments] = useState<any[]>([]);
 
   useEffect(() => {
     loadCarriers();
+    loadIncompleteDocuments();
   }, []);
+
+  const loadIncompleteDocuments = async () => {
+    try {
+      const response = await documentApi.getIncompleteDocuments();
+      setIncompleteDocuments(response);
+    } catch (err: any) {
+      console.error('Error loading incomplete documents:', err);
+      // If authentication error, redirect to login
+      if (err.response?.status === 401) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
+        router.push('/login');
+      }
+    }
+  };
 
   const loadCarriers = async () => {
     try {
@@ -51,8 +69,15 @@ export default function DocumentUploadPage() {
       const carriersData = await carrierApi.getCarriers();
       setCarriers(carriersData);
       setError(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading carriers:', err);
+      // If authentication error, redirect to login
+      if (err.response?.status === 401) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
+        router.push('/login');
+        return;
+      }
       setError('Failed to load carriers');
     } finally {
       setLoading(false);
@@ -268,6 +293,63 @@ export default function DocumentUploadPage() {
           ]}
         />
 
+        {/* Continue Where You Left Off */}
+        {incompleteDocuments.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Continue Where You Left Off</h3>
+                  <p className="text-sm text-gray-600">You have {incompleteDocuments.length} document(s) waiting for your attention</p>
+                </div>
+                <ClockIcon className="h-8 w-8 text-blue-600" />
+              </div>
+              <div className="space-y-2">
+                {incompleteDocuments.slice(0, 3).map((doc) => (
+                  <motion.div
+                    key={doc.document_id}
+                    whileHover={{ scale: 1.01 }}
+                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200 hover:border-blue-400 transition-colors cursor-pointer"
+                    onClick={() => router.push(`/documents/process/${doc.document_id}`)}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <DocumentTextIcon className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{doc.filename}</p>
+                        <p className="text-xs text-gray-600">
+                          {doc.can_review && 'Ready for review'}
+                          {doc.can_retry && 'Processing failed - retry available'}
+                          {!doc.can_review && !doc.can_retry && 'Processing...'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {doc.confidence > 0 && (
+                        <Badge variant={doc.confidence >= 0.7 ? 'secondary' : 'warning'}>
+                          {Math.round(doc.confidence * 100)}%
+                        </Badge>
+                      )}
+                      <ArrowPathIcon className="h-4 w-4 text-blue-600" />
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+              {incompleteDocuments.length > 3 && (
+                <button
+                  onClick={() => router.push('/documents')}
+                  className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  View all {incompleteDocuments.length} incomplete documents →
+                </button>
+              )}
+            </Card>
+          </motion.div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Upload Area */}
           <div className="lg:col-span-2">
@@ -428,9 +510,12 @@ export default function DocumentUploadPage() {
                               </div>
 
                               <div className="flex items-center space-x-4">
-                                {fileItem.status === 'completed' && fileItem.document?.policy_id ? (
-                                  <Link href={`/policies/${fileItem.document.policy_id}`}>
-                                    <a className="text-sm font-medium text-indigo-600 hover:underline">View Policy</a>
+                                {fileItem.status === 'completed' && fileItem.document ? (
+                                  <Link
+                                    href={`/documents/processing/${fileItem.document.id}`}
+                                    className="text-sm font-medium text-indigo-600 hover:underline"
+                                  >
+                                    View Status
                                   </Link>
                                 ) : fileItem.status === 'uploading' ? (
                                   <div className="w-24 bg-gray-200 rounded-full h-2">
@@ -479,6 +564,30 @@ export default function DocumentUploadPage() {
                 )}
               </AnimatePresence>
             </Card>
+
+            {/* Processing Cards - Show inline after upload completes */}
+            {uploadFiles.filter(f => f.status === 'completed' && f.document).length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Processing Documents
+                </h3>
+                <div className="space-y-4">
+                  {uploadFiles
+                    .filter(f => f.status === 'completed' && f.document)
+                    .map(f => (
+                      <InlineProcessingCard
+                        key={f.document!.id}
+                        documentId={f.document!.id}
+                        fileName={f.file.name}
+                        onPolicyCreated={(policyId) => {
+                          // Remove from upload list when policy is created
+                          setUploadFiles(prev => prev.filter(item => item.id !== f.id));
+                        }}
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Upload Info */}

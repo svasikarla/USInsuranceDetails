@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list = [
         "http://localhost:3000",
         "http://localhost:3001",
+        "http://localhost:3002",
         "http://localhost:8000",
         "https://*.vercel.app",  # Vercel deployments
         "https://*.netlify.app", # Netlify deployments
@@ -28,6 +29,10 @@ class Settings(BaseSettings):
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def assemble_cors_origins(cls, v, values):
+        import json
+        # If v is a string (from .env), parse it as JSON
+        if isinstance(v, str):
+            v = json.loads(v)
         # Add frontend URL from environment if provided
         frontend_url = os.getenv("FRONTEND_URL")
         if frontend_url and frontend_url not in v:

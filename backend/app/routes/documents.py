@@ -191,6 +191,40 @@ async def delete_document(
     return None
 
 
+@router.get("/{document_id}/processing-status", response_model=schemas.DocumentProcessingStatus)
+async def get_document_processing_status(
+    *,
+    db: Session = Depends(get_db),
+    document_id: UUID,
+    current_user: schemas.User = Depends(get_current_user),
+) -> Any:
+    """
+    Get enhanced processing status for a document with detailed stage information.
+    This endpoint is designed for real-time polling on the status page.
+    """
+    document = document_service.get_document(db=db, document_id=document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+    if document.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to access this document",
+        )
+
+    status_info = document_service.get_document_processing_status(db=db, document_id=document_id)
+    if not status_info:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not generate processing status",
+        )
+
+    return status_info
+
+
 @router.get("/{document_id}/policy-status")
 async def get_document_policy_status(
     *,
@@ -199,7 +233,7 @@ async def get_document_policy_status(
     current_user: schemas.User = Depends(get_current_user),
 ) -> Any:
     """
-    Get the automatic policy creation status for a document
+    Get the automatic policy creation status for a document (legacy endpoint)
     """
     document = document_service.get_document(db=db, document_id=document_id)
     if not document:
@@ -378,3 +412,138 @@ async def create_policy_from_review(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create policy: {str(e)}",
         )
+
+
+@router.post("/{document_id}/save-draft")
+async def save_review_draft(
+    *,
+    db: Session = Depends(get_db),
+    document_id: UUID,
+    draft_data: dict,
+    current_user: schemas.User = Depends(get_current_user),
+) -> Any:
+    """
+    Save draft of reviewed policy data (progress persistence)
+    Allows users to save their work and continue later
+    """
+    document = document_service.get_document(db=db, document_id=document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+    if document.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to access this document",
+        )
+
+    try:
+        # Update extracted_policy_data with user's draft
+        document.extracted_policy_data = draft_data
+        db.commit()
+
+        return {
+            "success": True,
+            "message": "Draft saved successfully",
+            "saved_at": datetime.utcnow().isoformat()
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save draft: {str(e)}",
+        )
+
+
+@router.post("/{document_id}/retry-processing")
+async def retry_document_processing(
+    *,
+    db: Session = Depends(get_db),
+    document_id: UUID,
+    current_user: schemas.User = Depends(get_current_user),
+    force: bool = False
+) -> Any:
+    """
+    Retry processing a failed document
+    """
+    document = document_service.get_document(db=db, document_id=document_id)
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
+    if document.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions to access this document",
+        )
+
+    if document.processing_status not in ["failed", "completed"] and not force:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document is not in a state that can be retried. Use force=true to override.",
+        )
+
+    try:
+        # Reset processing status
+        document.processing_status = "pending"
+        document.processing_error = None
+        document.auto_creation_status = "not_attempted"
+        db.commit()
+
+        # Trigger async processing
+        document_service.process_document_async(document.id)
+
+        return {
+            "success": True,
+            "message": "Document processing restarted",
+            "document_id": str(document_id)
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retry processing: {str(e)}",
+        )
+
+
+@router.get("/incomplete")
+async def get_incomplete_documents(
+    *,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user),
+) -> List[Any]:
+    """
+    Get list of documents that need attention (in review, processing, or failed)
+    Helps users continue where they left off
+    """
+    from app import models
+
+    incomplete_docs = db.query(models.PolicyDocument).filter(
+        models.PolicyDocument.user_id == current_user.id,
+        models.PolicyDocument.auto_creation_status.in_([
+            'ready_for_review',
+            'extracting',
+            'failed'
+        ])
+    ).order_by(models.PolicyDocument.created_at.desc()).limit(10).all()
+
+    result = []
+    for doc in incomplete_docs:
+        result.append({
+            "document_id": str(doc.id),
+            "filename": doc.original_filename,
+            "status": doc.auto_creation_status,
+            "processing_status": doc.processing_status,
+            "confidence": float(doc.auto_creation_confidence) if doc.auto_creation_confidence else 0.0,
+            "created_at": doc.created_at.isoformat() if doc.created_at else None,
+            "can_review": doc.auto_creation_status == 'ready_for_review',
+            "can_retry": doc.processing_status == 'failed'
+        })
+
+    return result

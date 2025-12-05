@@ -43,5 +43,5 @@ class User(UserInDBBase):
 
 
 class UserInDB(UserInDBBase):
-    """User data stored in DB"""
-    password_hash: str
+    """User data stored in DB - passwords are stored in Supabase Auth"""
+    pass

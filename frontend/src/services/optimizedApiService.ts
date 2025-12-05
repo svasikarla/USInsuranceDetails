@@ -174,9 +174,16 @@ class OptimizedApiService {
   // ============================================================================
 
   async getDashboardComplete(forceRefresh = false): Promise<CompleteDashboardData> {
+    console.log('OptimizedApiService: getDashboardComplete called');
     return this.fetchWithCache(
       'dashboard-complete',
-      () => apiClient.get('/api/dashboard/complete').then(r => r.data),
+      () => {
+        console.log('OptimizedApiService: making actual API request to /api/dashboard/complete');
+        return apiClient.get('/api/dashboard/complete').then(r => {
+          console.log('OptimizedApiService: API request successful');
+          return r.data;
+        });
+      },
       5 * 60 * 1000, // 5 minutes TTL
       forceRefresh
     );
@@ -327,7 +334,7 @@ class OptimizedApiService {
     return operation().finally(() => {
       const duration = performance.now() - start;
       console.debug(`API operation ${name} took ${duration.toFixed(2)}ms`);
-      
+
       // Send to analytics if available
       if (typeof window !== 'undefined' && (window as any).analytics) {
         (window as any).analytics.track('API Performance', {
@@ -349,7 +356,7 @@ class OptimizedApiService {
     const promises = requests.map(({ key, fetcher, ttl }) =>
       this.fetchWithCache(key, fetcher, ttl)
     );
-    
+
     return Promise.all(promises);
   }
 

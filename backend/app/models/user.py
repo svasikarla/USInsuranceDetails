@@ -5,10 +5,10 @@ import uuid
 
 class User(Base, BaseModel):
     __tablename__ = "users"
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
+    # NOTE: Passwords are stored in Supabase Auth, not in this table
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     company_name = Column(String(255))

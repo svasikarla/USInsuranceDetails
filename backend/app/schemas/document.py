@@ -65,6 +65,45 @@ class PolicyDocumentWithExtractedData(PolicyDocument):
     extracted_policy_data: Optional[Dict[str, Any]] = None
 
 
+class ProcessingStage(BaseModel):
+    """Individual processing stage information"""
+    name: str  # 'upload', 'extraction', 'ai_analysis', 'policy_creation'
+    status: str  # 'pending', 'in_progress', 'completed', 'failed'
+    progress_percentage: int = 0
+    message: Optional[str] = None
+    completed_at: Optional[datetime] = None
+
+
+class DocumentProcessingStatus(BaseModel):
+    """
+    Enhanced document processing status with detailed stage information.
+    Used for real-time status updates on the status page.
+    """
+    document_id: UUID
+    overall_status: str  # 'pending', 'processing', 'completed', 'failed'
+    overall_progress: int  # 0-100
+    current_stage: str  # Current processing stage name
+    stages: List[ProcessingStage]
+
+    # Processing results
+    extraction_confidence: Optional[float] = None
+    auto_creation_status: Optional[str] = None
+    auto_creation_confidence: Optional[float] = None
+
+    # Routing information
+    should_review: bool = False
+    policy_created: bool = False
+    policy_id: Optional[UUID] = None
+
+    # Timing
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+    # Messages
+    error_message: Optional[str] = None
+    info_message: Optional[str] = None
+
+
 class CompleteDocumentData(BaseModel):
     """
     Complete document data schema for optimized single-request endpoint.
