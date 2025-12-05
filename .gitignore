@@ -157,3 +157,24 @@ developmentplan.md
 *_TEST_REPORT.md
 *_ENHANCEMENTS.md
 RESOLVED_ISSUES.md
+
+# Backup and temporary files
+*.new
+*.old
+*.bak
+*.backup
+*.tmp
+*.temp
+
+# Sample and test data
+sample_*.txt
+sample_*.pdf
+sample_*.json
+
+# One-time migration scripts
+drop_*.py
+fix_*.sql
+migrate_*.py
+
+# Text editor temporary files
+New Text Document.txt

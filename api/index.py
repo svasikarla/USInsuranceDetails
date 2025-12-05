@@ -9,9 +9,16 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
 from backend.app.main import app as fastapi_app
 
 # Configure CORS for Vercel deployment
+# Use environment variable for allowed origins, or default to safe values
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+]
+
 fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this properly for production
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
